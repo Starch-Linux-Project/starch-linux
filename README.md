@@ -26,6 +26,13 @@ The installer currently supports whole-disk erase only. It does not offer
 manual partitioning, install-alongside, disk encryption, disk swap, or an X11
 Plasma session.
 
+The live desktop itself remains a Plasma Wayland session. Because Calamares
+runs with root privileges, its launcher uses the session's XWayland display and
+preserves `DISPLAY` and `XAUTHORITY` across `sudo`; passing the live user's
+Wayland runtime directory to a root Qt process is rejected by Qt. For that
+reason, `xorg-xwayland` is an explicit live-image dependency even though an X11
+Plasma session is not provided.
+
 ## Project status
 
 The live environment, Calamares installation, installed-system boot, and Plasma
@@ -56,15 +63,20 @@ unshare --map-auto --map-root-user -- id
 
 ## Build
 
-For the usual quiet build, which places the ISO directly in `starch-out/`:
+Use the repository build wrapper so the Calamares package and local repository
+are staged into a fresh Archiso profile:
 
 ```bash
-./compile
+./build.sh --build
 ```
 
-For full build output and a complete artifact directory:
+Do not invoke `mkarchiso` directly on `archiso/profile`; that bypasses installer
+staging and can leave the shared work directory owned by root or a subordinate
+namespace user. If a previous build reports that a generated directory is not
+writable, remove that generated state and retry:
 
 ```bash
+sudo ./clean.sh work
 ./build.sh --build
 ```
 

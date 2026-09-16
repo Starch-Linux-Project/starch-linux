@@ -52,5 +52,11 @@ class ScaffoldSafety(unittest.TestCase):
         result = subprocess.run([str(self.root / "build.sh")], capture_output=True)
         self.assertEqual(result.returncode, 2)
 
+    def test_build_checks_generated_directory_before_installer_build(self):
+        script = (SOURCE / "build.sh").read_text()
+        writable_check = script.index("Generated directory is not writable")
+        installer_build = script.index('scripts/build/calamares.sh\" --ensure')
+        self.assertLess(writable_check, installer_build)
+
 if __name__ == "__main__":
     unittest.main()
