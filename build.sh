@@ -31,13 +31,25 @@ if [[ ! $available =~ ^[0-9]+$ ]] || (( available < 20 * 1024 * 1024 )); then
 fi
 (( failed == 0 )) || exit "$failed"
 [[ $1 != --check ]] || exit 0
+mkdir -p -- "$REPO_ROOT/build/"{work,cache,logs} "$REPO_ROOT/starch-out"
+for name in work cache logs; do
+    generated_dir="$REPO_ROOT/build/$name"
+    if [[ ! -w $generated_dir || ! -x $generated_dir ]]; then
+        printf 'Generated directory is not writable by the current user: %s\n' "$generated_dir" >&2
+        printf 'Remove the stale generated directory with: sudo ./clean.sh %s\n' "$name" >&2
+        exit 1
+    fi
+done
+if [[ ! -w "$REPO_ROOT/starch-out" || ! -x "$REPO_ROOT/starch-out" ]]; then
+    printf 'ISO output directory is not writable by the current user: %s\n' "$REPO_ROOT/starch-out" >&2
+    exit 1
+fi
 if (( EUID != 0 )); then
     # Archiso 90 supports rootless builds with subordinate UID/GID mappings.
     unshare --map-auto --map-root-user -- true
 fi
 # Build/reuse the pinned installer in an isolated official-Arch build root.
 "$REPO_ROOT/scripts/build/calamares.sh" --ensure
-mkdir -p -- "$REPO_ROOT/build/"{work,cache,logs} "$REPO_ROOT/starch-out"
 # Fresh paths avoid mkarchiso's run-once markers reusing an older profile.
 run_dir=$(mktemp -d "$REPO_ROOT/build/work/run-XXXXXXXX")
 run_id=${run_dir##*/}

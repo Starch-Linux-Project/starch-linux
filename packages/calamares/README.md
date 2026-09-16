@@ -28,3 +28,11 @@ installation content surfaces. Their news text lives in the branding directory,
 so content updates do not require editing the C++ patch. Installed SDDM
 autologin is also cleared by the target configuration stage and checked before
 success.
+
+In the live Plasma Wayland session, `/usr/local/bin/starch-install` elevates
+Calamares with `sudo` and runs its Qt interface through XWayland. The launcher
+preserves `DISPLAY` and `XAUTHORITY` and selects the `xcb` Qt backend. Do not
+switch it back to a preserved `XDG_RUNTIME_DIR`: that directory belongs to the
+live user, and current Qt rejects it after the process becomes root, leaving the
+desktop shortcut with no installer window. The Archiso package list therefore
+includes `xorg-xwayland` explicitly.
