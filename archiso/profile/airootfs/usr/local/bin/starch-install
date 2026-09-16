@@ -2,10 +2,13 @@
 set -euo pipefail
 [[ -f /etc/starch-live ]]
 if [[ $(id -u) != 0 ]]; then
-    exec sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR /usr/local/bin/starch-install
+    # Qt rejects a Wayland runtime directory owned by the live user after sudo
+    # changes the effective UID to root. Use Plasma's XWayland display for the
+    # privileged installer and carry its authentication into the root process.
+    exec sudo --preserve-env=DISPLAY,XAUTHORITY /usr/local/bin/starch-install
 fi
 umask 077
-export QT_QPA_PLATFORM=wayland
+export QT_QPA_PLATFORM=xcb
 export XDG_CONFIG_HOME=/root/.config
 export XDG_CACHE_HOME=/root/.cache
 export XDG_DATA_HOME=/root/.local/share

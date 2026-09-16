@@ -64,7 +64,14 @@ class LiveProfile(unittest.TestCase):
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
         self.assertTrue({"fish", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus"}.issubset(packages))
+        self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
+
+    def test_installer_uses_xwayland_across_sudo(self):
+        launcher = (FS / "usr/local/bin/starch-install").read_text()
+        self.assertIn("--preserve-env=DISPLAY,XAUTHORITY", launcher)
+        self.assertIn("export QT_QPA_PLATFORM=xcb", launcher)
+        self.assertNotIn("--preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR", launcher)
 
     def test_plasma_dark_theme_and_default_launchers(self):
         kdeglobals = configparser.ConfigParser()
