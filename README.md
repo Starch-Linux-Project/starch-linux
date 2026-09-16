@@ -1,6 +1,6 @@
 # Starch Linux
 
-Starch Linux is a Arch-based Linux distribution built around KDE
+Starch Linux is an Arch-based Linux distribution built around KDE
 Plasma and Wayland. This repository contains the Archiso profile, Calamares
 installer integration, package manifests, build tooling, and validation tests
 used to produce a bootable live ISO and install a minimal desktop system.
