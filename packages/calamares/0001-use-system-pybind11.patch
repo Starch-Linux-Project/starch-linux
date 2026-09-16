@@ -1,0 +1,23 @@
+From: Starch Linux project
+Subject: [PATCH] build: use the packaged pybind11 headers
+
+The bundled pybind11 2.11.1 predates Python 3.14. Arch's packaged pybind11
+tracks the Python toolchain and is used only while compiling the bindings.
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 132b4741..780abcf2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -651,7 +651,7 @@ set(Calamares_LIBRARIES calamares)
+ 
+ add_subdirectory(3rdparty/kdsingleapplication)
+ if(WITH_PYBIND11)
+-    add_subdirectory(3rdparty/pybind11)
++    find_package(pybind11 CONFIG REQUIRED)
+ endif()
+ add_subdirectory(src)
+ 

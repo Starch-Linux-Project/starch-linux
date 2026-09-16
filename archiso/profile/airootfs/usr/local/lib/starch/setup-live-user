@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Called inside mkarchiso's root by the live-only package hook.
+[[ -f /etc/starch-live ]]
+[[ -x /usr/bin/fish && -f /usr/share/wayland-sessions/plasma.desktop ]]
+if ! id liveuser &>/dev/null; then
+    useradd --create-home --user-group --groups wheel --shell /usr/bin/fish --comment 'Starch Live' liveuser
+fi
+usermod --shell /usr/bin/fish liveuser
+passwd --delete liveuser
+usermod --shell /usr/bin/bash root
+[[ -d /home/liveuser ]]
+install -D -m 0755 -o liveuser -g liveuser /usr/share/applications/starch-install.desktop /home/liveuser/Desktop/starch-install.desktop

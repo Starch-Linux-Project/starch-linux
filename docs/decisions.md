@@ -1,0 +1,131 @@
+# Locked decisions and non-goals
+
+These decisions define the supported product scope. Changes require project approval.
+
+
+### 3.1 Platform and desktop
+
+- Architecture: x86_64 only. “x86 support” does not mean 32-bit i686 support.
+- Desktop: KDE Plasma, replacing every older COSMIC requirement.
+- Session: Plasma Wayland only.
+- Display manager: SDDM.
+- Live environment: boot directly into an automatically logged-in Plasma Wayland session.
+- Live account: an internal account such as `liveuser`; its visible name is unimportant.
+- Live account receives passwordless sudo only inside the live environment.
+- Installed users choose their username, display name and password in Calamares.
+- Fish is the default interactive and login shell for the live user and installed users.
+- Bash remains installed. Root retains Bash for conventional recovery, and all system/build scripts use an explicit Bash shebang.
+
+### 3.2 Kernel, boot and storage
+
+- Installed kernel: Arch `linux-lts` only.
+- Bootloader: GRUB.
+- Firmware modes: UEFI and legacy BIOS are both supported.
+- Installation layout: erase the entire selected disk only.
+- Dual boot and install-alongside workflows are not supported.
+- Filesystem: ext4.
+- Encryption: not offered in the first release.
+- Hibernation: not supported in the first release.
+- Normal suspend-to-RAM is required.
+- Swap partition: none by default.
+- zram: enabled by default using the Arch `zram-generator` package and a small explicit configuration file.
+- Secure Boot: not supported in the first release.
+
+Automatic layouts:
+
+| Firmware mode | Partition table and partitions |
+| --- | --- |
+| UEFI | GPT; 512 MiB FAT32 EFI System Partition mounted at `/boot/efi`; remaining usable space as ext4 `/` |
+| Legacy BIOS | GPT; small unformatted `bios_grub` partition as required by GRUB; remaining usable space as ext4 `/` |
+
+Calamares must show a conspicuous final warning that every partition on the selected disk will be destroyed. It must not expose install-alongside, partition replacement, encryption or unsupported layouts.
+
+### 3.3 Installation model
+
+- ISO construction: archiso, starting from a vendored copy of the upstream `releng` profile.
+- Installer UI: Calamares.
+- Installation type: online only.
+- Calamares handles locale, keyboard, timezone, user creation, disk selection/partitioning, mounting and configuration.
+- A narrowly scoped Starch `pacstrap` integration installs the current target packages from the official Arch repositories.
+- Do not copy the live squashfs as the installed root filesystem.
+- Internet connectivity and successful Arch repository synchronization are installer preconditions.
+- If the network, mirrors, signatures or package transaction fail, stop cleanly, preserve a readable log and do not report success.
+- The implementation may study the EndeavourOS online-installer architecture. Do not copy code until its exact source and license have been recorded.
+- The timezone is selected or confirmed by the user in Calamares. Starch has no product-level default timezone.
+
+### 3.4 Package sources and updates
+
+- Use Arch repositories directly.
+- Do not operate a Starch binary package repository for the first release.
+- Enable Flatpak and configure Flathub.
+- Do not preinstall applications from Flatpak in the base system.
+- Starch-owned utilities and configuration packages are built into each ISO release.
+- Installed copies of Starch-owned utilities do not receive a dedicated update channel. New versions appear only on later ISOs.
+- This limitation is intentional and must be documented: an older installation can retain an outdated or broken Starch Help Utility.
+- The Linux Update Utility is a separate standalone project. Do not merge its source or architecture into Starch Help Utility.
+- If the Linux Update Utility is preinstalled, consume it as a separately built, license-cleared artifact; keep its source repository and release process independent.
+- Starch does not stage, delay or test Arch updates before users receive them.
+- A broken Arch update can result in a broken Starch system. Starch does not promise snapshots, rollback or an additional recovery layer.
+
+### 3.5 Hardware policy
+
+- Goal: best-effort support for x86_64 PCs using Intel, AMD or NVIDIA graphics.
+- This is not a guarantee for every historical GPU generation.
+- The live environment contains the broadly applicable open graphics stack so it can boot on Intel, AMD and NVIDIA through Mesa/Nouveau where supported.
+- GPU detection uses PCI vendor IDs and kernel modalias information, not fragile parsing of human-readable `lspci` text.
+- Intel and AMD systems use the appropriate Mesa, Vulkan and video-acceleration packages.
+- A supported NVIDIA GPU receives the current official Arch packages appropriate for `linux-lts`, including NVIDIA userspace components.
+- A hybrid Intel/AMD plus NVIDIA laptop receives PRIME render-offload support.
+- NVIDIA devices unsupported by Arch’s current main NVIDIA driver fall back to Nouveau when viable; they are outside the guaranteed daily-driver matrix.
+- Driver package names and compatibility must come from release-time Arch metadata or a small reviewed mapping, never from hard-coded package versions.
+- CPU vendor detection installs `amd-ucode` or `intel-ucode` as appropriate.
+- Include broad Arch firmware coverage and document any non-redistributable firmware exclusions.
+
+### 3.6 Desktop applications already selected
+
+- Web browser and PDF/image fallback viewer: Firefox.
+- Video and music player: VLC.
+- Terminal: Konsole.
+- Graphical text editor: COSMIC Text Editor. This application choice does not restore the COSMIC desktop.
+- Calculator: GNOME Calculator.
+- Disk utility: GNOME Disks.
+- File manager: Nautilus.
+- Archive operations should work through Nautilus; include only the backend/integration packages actually required for those actions.
+- Fish and htop remain requirements from the older product baseline.
+- Do not add a dedicated PDF viewer, image viewer or archive-manager launcher unless later testing shows the chosen workflow is inadequate.
+- The complete optional application list is intentionally deferred. Keep it in a data manifest so choices can change without altering installer or Help Utility code.
+
+### 3.7 Icons and branding
+
+- Use upstream/default application icons.
+- Use Breeze as the desktop icon theme and fallback.
+- Do not ship the previously reviewed custom third-party application icons.
+- Do not recolor, trace or replace third-party product marks merely for theme consistency.
+- Starch-owned applications may use original Starch artwork with recorded provenance.
+- Generic category artwork may be original or taken from a clearly documented permissive source.
+- Make the system recognizably Starch through original branding in `/etc/os-release`, GRUB, SDDM/live wallpaper, installer branding and fastfetch—not by modifying third-party application marks.
+
+## 4. Explicit first-release non-goals
+
+Contributors must not quietly add any of the following:
+
+- 32-bit i686 installation media.
+- ARM support.
+- X11 Plasma session.
+- Secure Boot.
+- Full-disk encryption.
+- Hibernation.
+- Dual boot, Windows coexistence or install-alongside partitioning.
+- Manual partitioning in the newcomer installation flow.
+- Btrfs, snapshots or automatic rollback.
+- Offline installation.
+- A Starch package repository or staged Arch mirror.
+- AUR helper installation by default.
+- CachyOS packages or repositories enabled by default.
+- A custom application icon theme.
+- A monolithic installer script or monolithic Help Utility class.
+
+
+## Deferred approvals
+
+Core-service packages require a representative-system inventory and reviewed manifest approval. Optional applications, updater inclusion, final artwork, GPU support claims and release signing remain deferred. Do not infer choices from an arbitrary host's installed packages.

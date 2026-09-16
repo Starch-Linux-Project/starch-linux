@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Install Starch Linux
+Comment=Install Starch Linux using the entire selected disk (internet required)
+Exec=/usr/local/bin/starch-install
+Icon=system-software-install
+Terminal=false
+Categories=System;
+StartupNotify=true

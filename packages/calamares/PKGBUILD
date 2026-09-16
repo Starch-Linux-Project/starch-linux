@@ -1,0 +1,124 @@
+# Maintainer: Starch Linux project
+
+pkgname=calamares-starch
+pkgver=3.3.14
+pkgrel=3
+pkgdesc='Qt 6 system installer framework, reduced for Starch Linux'
+arch=(x86_64)
+url='https://calamares.io/'
+license=(GPL-3.0-or-later)
+depends=(
+    kcoreaddons
+    kpmcore
+    libpwquality
+    parted
+    polkit-qt6
+    python
+    python-yaml
+    qt6-base
+    qt6-svg
+    yaml-cpp
+)
+makedepends=(
+    cmake
+    extra-cmake-modules
+    ninja
+    pybind11
+    python-jsonschema
+    qt6-tools
+)
+provides=("calamares=${pkgver}")
+conflicts=(calamares)
+source=(
+    "calamares-${pkgver}.tar.gz::https://github.com/calamares/calamares/releases/download/v${pkgver}/calamares-${pkgver}.tar.gz"
+    0001-use-system-pybind11.patch
+    0001-starch-erase-only-partition.patch
+    0002-skip-os-prober.patch
+    0003-live-only-autologin.patch
+    0004-starch-installer-presentation.patch
+)
+sha256sums=(
+    5547f80db067dea923ae693ba6bb88eb2b2eeac1da3ebec42fce453e31c290c0
+    50a08d24aa649405b7e6173b77a73fe7a828de709675778abccf4c8b27d73f82
+    b3295320b5d4810c983ac5f34fa915b34be2379ed96ee01dce204c05fd3af844
+    24a957415dc4b98895f8ec6bb3224c74fab70b92685fc3b1e1d57967c563bcd8
+    67385cec233320228c72ea51791bb8ed2ac42c684d7e69d860cba88d5a4b63b4
+    88f7f9c1085ee2c6b3827e4db048868b36188603ecf68aed890562c24f71c530
+)
+
+prepare() {
+    patch -d "calamares-${pkgver}" -Np1 < 0001-use-system-pybind11.patch
+    patch -d "calamares-${pkgver}" -Np1 < 0001-starch-erase-only-partition.patch
+    patch -d "calamares-${pkgver}" -Np1 < 0002-skip-os-prober.patch
+    patch -d "calamares-${pkgver}" -Np1 < 0003-live-only-autologin.patch
+    patch -d "calamares-${pkgver}" -Np1 < 0004-starch-installer-presentation.patch
+}
+
+build() {
+    local -a wanted_modules=(
+        bootloader
+        displaymanager
+        finished
+        fstab
+        hwclock
+        keyboard
+        locale
+        localecfg
+        machineid
+        mount
+        partition
+        services-systemd
+        shellprocess
+        summary
+        umount
+        users
+        welcome
+    )
+    local module module_path
+    local -a skipped_modules=()
+
+    for module_path in "calamares-${pkgver}"/src/modules/*; do
+        [[ -d $module_path ]] || continue
+        module=${module_path##*/}
+        if [[ ! " ${wanted_modules[*]} " =~ " ${module} " ]]; then
+            skipped_modules+=("${module}")
+        fi
+    done
+
+    cmake -S "calamares-${pkgver}" -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_SCHEMA_TESTING=OFF \
+        -DBUILD_CRASH_REPORTING=OFF \
+        -DINSTALL_COMPLETION=OFF \
+        -DINSTALL_CONFIG=OFF \
+        -DINSTALL_POLKIT=ON \
+        -DSKIP_MODULES="${skipped_modules[*]}" \
+        -DUSE_services=systemd \
+        -DWITH_PYBIND11=ON \
+        -DWITH_PYTHON=ON \
+        -DWITH_QML=OFF \
+        -DWITH_QT6=ON \
+        -Wno-dev
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}
+
+check() {
+    local module schema config
+    local -a checked_modules=(
+        bootloader displaymanager fstab mount partition services-systemd
+    )
+
+    for module in "${checked_modules[@]}"; do
+        schema="calamares-${pkgver}/src/modules/${module}/${module}.schema.yaml"
+        config="calamares-${pkgver}/src/modules/${module}/${module}.conf"
+        [[ -f $schema && -f $config ]] || continue
+        python "calamares-${pkgver}/ci/configvalidator.py" "$schema" "$config"
+    done
+}

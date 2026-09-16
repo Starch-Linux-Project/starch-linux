@@ -1,0 +1,30 @@
+componentName: starch
+welcomeStyleCalamares: false
+windowExpanding: normal
+windowSize: 900px,650px
+windowPlacement: center
+slideshow: []
+sidebar: widget
+navigation: widget
+strings:
+  productName: Starch Linux
+  shortProductName: Starch
+  version: Development
+  shortVersion: dev
+  versionedName: Starch Linux
+  shortVersionedName: Starch Linux
+  bootloaderEntryName: Starch
+  productUrl: https://starchlinux.org/
+  supportUrl: https://starchlinux.org/
+  knownIssuesUrl: ""
+  releaseNotesUrl: ""
+  donateUrl: ""
+images:
+  productBanner: banner.svg
+style:
+  SidebarBackground: "#232629"
+  SidebarText: "#eff0f1"
+  SidebarTextCurrent: "#eff0f1"
+  SidebarBackgroundCurrent: "#3d5d73"
+uploadServer:
+  type: none

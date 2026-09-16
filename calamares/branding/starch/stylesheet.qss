@@ -1,0 +1,15 @@
+/* Starch-owned Calamares presentation styling. */
+#welcomeContent,
+#installerContent {
+    background-color: rgba(35, 38, 41, 220);
+    border: 1px solid #3d5d73;
+    border-radius: 8px;
+    color: #eff0f1;
+    padding: 16px;
+}
+
+#supportButton,
+#releaseNotesButton {
+    color: #1793d1;
+    font-weight: 600;
+}

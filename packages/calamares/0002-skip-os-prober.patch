@@ -1,0 +1,18 @@
+From: Starch Linux Project
+Subject: [PATCH] Skip OS probing in the erase-only installer
+
+Starch does not support sharing a disk with an existing installation. Avoid
+probing or temporarily mounting other systems just to label the erase page.
+Upstream-Status: Inappropriate [Starch-specific installer policy]
+License: GPL-3.0-or-later
+--- a/src/modules/partition/core/PartitionCoreModule.cpp
++++ b/src/modules/partition/core/PartitionCoreModule.cpp
+@@ -293,7 +293,7 @@
+ 
+     // The following PartUtils::runOsprober call in turn calls PartUtils::canBeResized,
+     // which relies on a working DeviceModel.
+-    m_osproberLines = PartUtils::runOsprober( this->deviceModel() );
++    m_osproberLines.clear(); // Whole-disk erase needs no existing-OS discovery.
+ 
+     // We perform a best effort of filling out filesystem UUIDs in m_osproberLines
+     // because we will need them later on in PartitionModel if partition paths

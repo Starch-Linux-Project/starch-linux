@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+if (( $# != 0 )); then
+    echo 'Usage: ./compile' >&2
+    exit 2
+fi
+source "$REPO_ROOT/scripts/build/paths.sh"
+validate_generated_dir logs
+mkdir -p -- "$REPO_ROOT/build/logs"
+log=$(mktemp "$REPO_ROOT/build/logs/compile-XXXXXXXX.log")
+printf 'Building ISO. Full log: %s\n' "$log"
+if "$REPO_ROOT/build.sh" --compile >"$log" 2>&1; then
+    grep '^ISO ready: ' "$log"
+else
+    status=$?
+    tail -n 30 -- "$log" >&2
+    printf 'Build failed. Full log: %s\n' "$log" >&2
+    exit "$status"
+fi
