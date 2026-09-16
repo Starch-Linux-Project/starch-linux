@@ -1,0 +1,8 @@
+NAME="Starch Linux"
+PRETTY_NAME="Starch Linux Live"
+ID=starch
+ID_LIKE=arch
+VERSION="Live"
+VERSION_ID=live
+BUILD_ID=rolling
+ANSI_COLOR="38;2;23;147;209"

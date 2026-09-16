@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Starch Linux"
+            }
+        ],
+        "Category": "",
+        "Description": "Starch Linux Breeze Dark defaults",
+        "Id": "org.starch.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "Starch Dark"
+    }
+}

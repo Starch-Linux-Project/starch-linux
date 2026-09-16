@@ -1,0 +1,22 @@
+# Generated build state, package caches, logs, and chroots
+/build/
+
+# Generated ISO images and release artifacts
+/starch-out/
+*.iso
+
+# Local agent configuration
+/.agents/
+/.codex/
+
+# Personal notes, development journals, and internal planning
+/dev-private/
+
+# Python test and tooling caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and operating-system files
+*~
+.DS_Store

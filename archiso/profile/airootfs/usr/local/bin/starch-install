@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -f /etc/starch-live ]]
+if [[ $(id -u) != 0 ]]; then
+    exec sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR /usr/local/bin/starch-install
+fi
+umask 077
+export QT_QPA_PLATFORM=wayland
+export XDG_CONFIG_HOME=/root/.config
+export XDG_CACHE_HOME=/root/.cache
+export XDG_DATA_HOME=/root/.local/share
+mkdir -p /run/starch-installer
+# Prevent two installers from racing over disks or shared preflight state.
+exec flock --nonblock /run/starch-installer/installer.lock /usr/bin/calamares

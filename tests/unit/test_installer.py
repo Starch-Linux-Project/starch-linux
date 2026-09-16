@@ -1,0 +1,166 @@
+import importlib.util
+import configparser
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'scripts/installer'))
+import runtime
+import preflight
+import configure
+import validate
+
+
+class InstallerSafety(unittest.TestCase):
+    def test_installer_presentation_is_branded_and_erase_is_initial(self):
+        branding = yaml.safe_load((ROOT / 'calamares/branding/starch/branding.desc').read_text())
+        self.assertFalse(branding['welcomeStyleCalamares'])
+        self.assertNotIn('test installer', branding['strings']['versionedName'].lower())
+        self.assertTrue(branding['strings']['productUrl'].startswith('https://'))
+        self.assertEqual(branding['strings']['supportUrl'], branding['strings']['productUrl'])
+        self.assertEqual(branding['images']['productBanner'], 'banner.svg')
+
+        for name in ('welcome.html', 'slideshow.html'):
+            content = (ROOT / 'calamares/branding/starch' / name).read_text()
+            self.assertIn('@PRODUCT_URL@', content)
+            self.assertIn('news', content.lower())
+
+        partition = yaml.safe_load((ROOT / 'calamares/modules/partition.conf').read_text())
+        self.assertEqual(partition['initialPartitioningChoice'], 'erase')
+        self.assertFalse(partition['allowManualPartitioning'])
+        self.assertEqual(partition['userSwapChoices'], ['none'])
+
+        presentation_patch = (ROOT / 'packages/calamares/0004-starch-installer-presentation.patch').read_text()
+        self.assertIn('m_rightLayout->insertLayout( 2, m_drivesLayout )', presentation_patch)
+        self.assertEqual(presentation_patch.count('setOpenExternalLinks( true )'), 2)
+
+    def test_machine_id_validation_rejects_invalid_and_unlinked_ids(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'etc').mkdir()
+            (root / 'var/lib/dbus').mkdir(parents=True)
+            link = root / 'var/lib/dbus/machine-id'
+            link.symlink_to('/etc/machine-id')
+            for value in ('', 'uninitialized', '0' * 32, 'not-a-machine-id'):
+                (root / 'etc/machine-id').write_text(value)
+                with self.assertRaises(RuntimeError):
+                    validate.validate_machine_id(root)
+            (root / 'etc/machine-id').write_text('123456789abcdef0123456789abcdef0\n')
+            validate.validate_machine_id(root)
+            link.unlink()
+            link.write_text('123456789abcdef0123456789abcdef0\n')
+            with self.assertRaises(RuntimeError):
+                validate.validate_machine_id(root)
+
+    def test_installed_sddm_uses_live_wayland_compositor(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'etc').mkdir()
+            (root / 'etc/sddm.conf').write_text('[Autologin]\nUser=example\nSession=plasma.desktop\nRelogin=true\n')
+            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot'):
+                configure.run(None)
+            installed = configparser.ConfigParser()
+            installed.read(root / 'etc/sddm.conf.d/10-starch.conf')
+            live = configparser.ConfigParser()
+            live.read(ROOT / 'archiso/profile/airootfs/etc/sddm.conf.d/10-starch-live.conf')
+            self.assertEqual(installed['General']['DisplayServer'], 'wayland')
+            self.assertEqual(installed['Wayland']['CompositorCommand'], live['Wayland']['CompositorCommand'])
+            self.assertEqual(installed['Wayland']['CompositorCommand'].split()[0], 'kwin_wayland')
+            self.assertEqual(installed['Theme']['Current'], 'breeze')
+            self.assertNotIn('Autologin', installed)
+            installed.read(root / 'etc/sddm.conf')
+            self.assertEqual(installed['Autologin']['User'], '')
+            self.assertFalse(installed.getboolean('Autologin', 'Relogin'))
+
+    def test_manifest_rejects_options_shell_text_duplicates_and_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'packages'
+            for invalid in ('--root\n', 'base; touch /tmp/bad\n', 'base\nbase\n', '# empty\n'):
+                p.write_text(invalid)
+                with self.assertRaises(RuntimeError):
+                    runtime.read_manifest(p)
+            p.write_text('base\n# comment\nlinux-lts\n')
+            self.assertEqual(runtime.read_manifest(p), ['base', 'linux-lts'])
+
+    def test_microcode_is_vendor_based_and_unknown_is_empty(self):
+        self.assertEqual(runtime.microcode('vendor_id : AuthenticAMD\n'), ['amd-ucode'])
+        self.assertEqual(runtime.microcode('vendor_id : GenuineIntel\n'), ['intel-ucode'])
+        self.assertEqual(runtime.microcode('model name : Intel-looking mystery\n'), [])
+
+    def test_rejects_busy_readonly_small_and_mapped_disks(self):
+        disk = {'path': '/dev/vda', 'type': 'disk', 'size': 32 * 1024**3, 'ro': False, 'mountpoints': [None]}
+        runtime.check_disk_tree({'blockdevices': [disk]}, '/dev/vda')
+        for changes in ({'ro': True}, {'size': 1024}, {'type': 'part'},
+                        {'mountpoints': ['/run/archiso/bootmnt']},
+                        {'children': [{'type': 'part', 'mountpoints': ['[SWAP]']}]},
+                        {'children': [{'type': 'crypt', 'mountpoints': [None]}]}):
+            with self.assertRaises(RuntimeError):
+                runtime.check_disk_tree({'blockdevices': [dict(disk, **changes)]}, '/dev/vda')
+        with self.assertRaises(RuntimeError):
+            runtime.check_disk_tree({'blockdevices': [disk]}, '/dev/vdb')
+
+    def test_target_refuses_host_root_and_unmounted_directory(self):
+        class GS:
+            def value(self, _):
+                return self.root
+        gs = GS()
+        with patch.object(runtime, 'require_live'):
+            for value in ('/', '/home', '/tmp/calamares-root-does-not-exist', None):
+                gs.root = value
+                with self.assertRaises(RuntimeError):
+                    runtime.target(gs)
+
+    def test_failed_sync_stops_before_selection_is_saved(self):
+        class GS:
+            def value(self, _):
+                return {'install': 'erase', 'swap': 'none'}
+        with tempfile.TemporaryDirectory() as d:
+            state = Path(d)
+            with patch.object(preflight, 'STATE', state), patch.object(preflight, 'selected_disk', return_value='/dev/vda'), \
+                 patch.object(preflight, 'output', return_value=json.dumps({'blockdevices': []})), \
+                 patch.object(preflight, 'check_disk_tree'), patch.object(preflight, 'read_manifest', return_value=['base']), \
+                 patch.object(Path, 'is_file', return_value=True), \
+                 patch.object(preflight, 'command', side_effect=RuntimeError('network unavailable')):
+                with self.assertRaisesRegex(RuntimeError, 'network unavailable'):
+                    preflight.run(GS())
+            self.assertFalse((state / 'selection.json').exists())
+
+    def test_checked_command_failure_propagates(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(runtime, 'LOG', Path(d) / 'log'):
+            with self.assertRaises(RuntimeError):
+                runtime.command([sys.executable, '-c', 'raise SystemExit(7)'])
+
+    def test_pipeline_checks_before_partition_and_success(self):
+        settings = yaml.safe_load((ROOT / 'calamares/settings.conf').read_text())
+        jobs = settings['sequence'][1]['exec']
+        self.assertLess(jobs.index('starch-preflight'), jobs.index('partition'))
+        self.assertLess(jobs.index('mount'), jobs.index('starch-bootstrap'))
+        self.assertLess(jobs.index('bootloader'), jobs.index('starch-validate'))
+        self.assertEqual(jobs[-1], 'umount')
+        self.assertNotIn('unpackfs', jobs)
+        self.assertTrue(settings['prompt-install'])
+        packages = runtime.read_manifest(ROOT / 'manifests/minimal-packages.txt')
+        self.assertIn('linux-lts', packages)
+        self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
+
+    def test_staged_overlay_excludes_live_credentials_and_services(self):
+        spec = importlib.util.spec_from_file_location('stage', ROOT / 'scripts/build/stage-installer.py')
+        stage = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stage)
+        import shutil
+        with tempfile.TemporaryDirectory() as d:
+            profile = Path(d) / 'profile'
+            shutil.copytree(ROOT / 'archiso/profile', profile, symlinks=True)
+            stage.stage(profile)
+            overlay = profile / 'airootfs/usr/share/starch-installer/target-overlay'
+            for path in ('etc/passwd', 'etc/shadow', 'etc/sudoers.d/10-starch-live', 'etc/starch-live',
+                         'etc/systemd/system', 'etc/NetworkManager', 'home/liveuser'):
+                self.assertFalse((overlay / path).exists(), path)
+            self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())

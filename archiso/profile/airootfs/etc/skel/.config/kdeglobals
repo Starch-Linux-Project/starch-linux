@@ -1,0 +1,9 @@
+[KDE]
+LookAndFeelPackage=org.starch.desktop
+widgetStyle=Breeze
+
+[General]
+ColorScheme=BreezeDark
+
+[Icons]
+Theme=breeze-dark
