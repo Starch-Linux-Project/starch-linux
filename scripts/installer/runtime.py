@@ -73,12 +73,44 @@ def microcode(cpuinfo):
     return []
 
 
+def selected_disk_node(tree, selected):
+    """Return selected from lsblk, merging repeats caused by N:M relationships."""
+    matches = []
+    def visit(node):
+        if node.get('path') == selected:
+            matches.append(node)
+        for child in node.get('children') or []:
+            visit(child)
+    for root in tree.get('blockdevices') or []:
+        visit(root)
+    if not matches:
+        raise RuntimeError('Could not identify the selected disk unambiguously.')
+    identity = {(node.get('type'), node.get('size'), node.get('ro')) for node in matches}
+    if len(identity) != 1:
+        raise RuntimeError('The selected disk has inconsistent device information.')
+
+    def merge(nodes):
+        result = dict(nodes[0])
+        result['mountpoints'] = list(dict.fromkeys(
+            mountpoint for node in nodes for mountpoint in (node.get('mountpoints') or [])
+        ))
+        child_groups = {}
+        for node in nodes:
+            for child in node.get('children') or []:
+                child_groups.setdefault(child.get('path'), []).append(child)
+        if child_groups:
+            if None in child_groups:
+                raise RuntimeError('Could not identify all devices on the selected disk safely.')
+            result['children'] = [merge(group) for group in child_groups.values()]
+        else:
+            result.pop('children', None)
+        return result
+    return merge(matches)
+
+
 def check_disk_tree(tree, selected):
     """Reject mounted/busy targets; never unmount another disk to make room."""
-    disks = tree.get('blockdevices', [])
-    if len(disks) != 1 or disks[0].get('path') != selected:
-        raise RuntimeError('Could not identify the selected disk unambiguously.')
-    disk = disks[0]
+    disk = selected_disk_node(tree, selected)
     if disk.get('type') != 'disk' or disk.get('ro') or int(disk.get('size', 0)) < 21 * 1024**3:
         raise RuntimeError('Select a writable whole disk with at least 21 GiB.')
     def visit(node):
@@ -93,10 +125,7 @@ def check_disk_tree(tree, selected):
 
 def deactivate_disk(tree, selected):
     """Make an explicitly selected erase target idle without touching other disks."""
-    disks = tree.get('blockdevices', [])
-    if len(disks) != 1 or disks[0].get('path') != selected:
-        raise RuntimeError('Could not identify the selected disk unambiguously.')
-    disk = disks[0]
+    disk = selected_disk_node(tree, selected)
     if disk.get('type') != 'disk' or disk.get('ro') or int(disk.get('size', 0)) < 21 * 1024**3:
         raise RuntimeError('Select a writable whole disk with at least 21 GiB.')
 
