@@ -11,6 +11,7 @@
 
 # Personal notes, development journals, and internal planning
 /dev-private/
+/dev-private-starch/
 
 # Python test and tooling caches
 __pycache__/
