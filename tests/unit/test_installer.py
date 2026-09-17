@@ -106,6 +106,37 @@ class InstallerSafety(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             runtime.check_disk_tree({'blockdevices': [disk]}, '/dev/vdb')
 
+    def test_deactivates_selected_disk_consumers_deepest_first(self):
+        tree = {'blockdevices': [{
+            'path': '/dev/nvme0n1', 'type': 'disk', 'size': 32 * 1024**3,
+            'ro': False, 'mountpoints': [None], 'children': [{
+                'path': '/dev/nvme0n1p2', 'type': 'part', 'mountpoints': ['[SWAP]', '/mnt/data'],
+                'children': [{
+                    'path': '/dev/mapper/old-root', 'type': 'crypt',
+                    'mountpoints': ['/mnt/data/home']
+                }]
+            }]
+        }]}
+        calls = []
+        with patch.object(runtime, 'command', side_effect=lambda argv, timeout=0: calls.append(argv)):
+            runtime.deactivate_disk(tree, '/dev/nvme0n1')
+        self.assertEqual(calls, [
+            ['umount', '--', '/mnt/data/home'],
+            ['umount', '--', '/mnt/data'],
+            ['cryptsetup', 'close', '/dev/mapper/old-root'],
+            ['swapoff', '--', '/dev/nvme0n1p2'],
+        ])
+
+    def test_never_deactivates_live_disk(self):
+        disk = {'path': '/dev/sda', 'type': 'disk', 'size': 32 * 1024**3, 'ro': False,
+                'mountpoints': [None], 'children': [
+                    {'path': '/dev/sda1', 'type': 'part', 'mountpoints': ['/run/archiso/bootmnt']}
+                ]}
+        with patch.object(runtime, 'command') as command:
+            with self.assertRaisesRegex(RuntimeError, 'running live system'):
+                runtime.deactivate_disk({'blockdevices': [disk]}, '/dev/sda')
+        command.assert_not_called()
+
     def test_target_refuses_host_root_and_unmounted_directory(self):
         class GS:
             def value(self, _):
@@ -125,7 +156,8 @@ class InstallerSafety(unittest.TestCase):
             state = Path(d)
             with patch.object(preflight, 'STATE', state), patch.object(preflight, 'selected_disk', return_value='/dev/vda'), \
                  patch.object(preflight, 'output', return_value=json.dumps({'blockdevices': []})), \
-                 patch.object(preflight, 'check_disk_tree'), patch.object(preflight, 'read_manifest', return_value=['base']), \
+                 patch.object(preflight, 'deactivate_disk'), patch.object(preflight, 'check_disk_tree'), \
+                 patch.object(preflight, 'read_manifest', return_value=['base']), \
                  patch.object(Path, 'is_file', return_value=True), \
                  patch.object(preflight, 'command', side_effect=RuntimeError('network unavailable')):
                 with self.assertRaisesRegex(RuntimeError, 'network unavailable'):

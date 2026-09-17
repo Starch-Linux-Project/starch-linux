@@ -91,6 +91,53 @@ def check_disk_tree(tree, selected):
     visit(disk)
 
 
+def deactivate_disk(tree, selected):
+    """Make an explicitly selected erase target idle without touching other disks."""
+    disks = tree.get('blockdevices', [])
+    if len(disks) != 1 or disks[0].get('path') != selected:
+        raise RuntimeError('Could not identify the selected disk unambiguously.')
+    disk = disks[0]
+    if disk.get('type') != 'disk' or disk.get('ro') or int(disk.get('size', 0)) < 21 * 1024**3:
+        raise RuntimeError('Select a writable whole disk with at least 21 GiB.')
+
+    nodes = []
+    def visit(node, depth=0):
+        path = node.get('path')
+        if not isinstance(path, str) or not path.startswith('/dev/'):
+            raise RuntimeError('Could not identify all devices on the selected disk safely.')
+        nodes.append((depth, node))
+        for child in node.get('children', []):
+            visit(child, depth + 1)
+    visit(disk)
+
+    mountpoints = []
+    for _, node in nodes:
+        for mountpoint in node.get('mountpoints') or []:
+            if not mountpoint or mountpoint == '[SWAP]':
+                continue
+            if (mountpoint == '/' or mountpoint == '/boot' or
+                    mountpoint.startswith(('/run/archiso', '/run/miso'))):
+                raise RuntimeError('Refusing to erase the disk that contains the running live system.')
+            mountpoints.append(mountpoint)
+
+    # Tear down consumers before their backing devices, deepest mounts first.
+    for mountpoint in sorted(set(mountpoints), key=lambda p: (p.count('/'), len(p)), reverse=True):
+        command(['umount', '--', mountpoint], timeout=60)
+    for _, node in sorted(nodes, reverse=True, key=lambda item: item[0]):
+        path = node['path']
+        if '[SWAP]' in (node.get('mountpoints') or []):
+            command(['swapoff', '--', path], timeout=60)
+        kind = node.get('type', '')
+        if kind == 'crypt':
+            command(['cryptsetup', 'close', path], timeout=60)
+        elif kind == 'lvm':
+            command(['lvchange', '-an', '--', path], timeout=60)
+        elif kind.startswith('raid'):
+            command(['mdadm', '--stop', path], timeout=60)
+        elif kind in ('dm', 'mpath'):
+            command(['dmsetup', 'remove', path], timeout=60)
+
+
 def selected_disk(gs):
     disk = gs.value('starchTargetDisk')
     if not isinstance(disk, str) or not disk.startswith('/dev/'):

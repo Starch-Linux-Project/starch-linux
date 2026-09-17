@@ -1,13 +1,16 @@
 import json
 from pathlib import Path
 import tempfile
-from runtime import DATA, STATE, check_disk_tree, command, microcode, output, read_manifest, selected_disk
+from runtime import DATA, STATE, check_disk_tree, command, deactivate_disk, microcode, output, read_manifest, selected_disk
 
 
 def run(gs):
     if gs.value('partitionChoices') != {'install': 'erase', 'swap': 'none'}:
         raise RuntimeError('Only erase-disk installation without disk swap is supported.')
     disk = selected_disk(gs)
+    tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
+                              'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
+    deactivate_disk(tree, disk)
     tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
                               'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
     check_disk_tree(tree, disk)
