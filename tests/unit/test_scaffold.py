@@ -58,5 +58,16 @@ class ScaffoldSafety(unittest.TestCase):
         installer_build = script.index('scripts/build/calamares.sh\" --ensure')
         self.assertLess(writable_check, installer_build)
 
+    def test_private_checkout_is_ignored_and_no_gitlinks_are_tracked(self):
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", "dev-private-starch/"], cwd=SOURCE
+        )
+        self.assertEqual(ignored.returncode, 0)
+        index = subprocess.check_output(
+            ["git", "ls-files", "--stage"], cwd=SOURCE, text=True
+        )
+        gitlinks = [line for line in index.splitlines() if line.startswith("160000 ")]
+        self.assertEqual(gitlinks, [], f"unexpected tracked gitlinks: {gitlinks}")
+
 if __name__ == "__main__":
     unittest.main()
