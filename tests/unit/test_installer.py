@@ -137,6 +137,30 @@ class InstallerSafety(unittest.TestCase):
                 runtime.deactivate_disk({'blockdevices': [disk]}, '/dev/sda')
         command.assert_not_called()
 
+    def test_selected_disk_may_be_one_of_multiple_lsblk_roots(self):
+        selected = {'path': '/dev/nvme0n1', 'type': 'disk', 'size': 32 * 1024**3,
+                    'ro': False, 'mountpoints': [None]}
+        tree = {'blockdevices': [
+            {'path': '/dev/mapper/holder', 'type': 'dm', 'mountpoints': [None]},
+            selected,
+        ]}
+        with patch.object(runtime, 'command') as command:
+            runtime.deactivate_disk(tree, '/dev/nvme0n1')
+        command.assert_not_called()
+        runtime.check_disk_tree(tree, '/dev/nvme0n1')
+
+    def test_repeated_selected_disk_in_lsblk_tree_is_one_device(self):
+        disk = {'path': '/dev/sda', 'type': 'disk', 'size': 32 * 1024**3,
+                'ro': False, 'mountpoints': [None]}
+        tree = {'blockdevices': [
+            {'path': '/dev/mapper/path-a', 'type': 'mpath', 'mountpoints': [None],
+             'children': [dict(disk)]},
+            {'path': '/dev/mapper/path-b', 'type': 'mpath', 'mountpoints': [None],
+             'children': [dict(disk)]},
+        ]}
+        self.assertEqual(runtime.selected_disk_node(tree, '/dev/sda')['path'], '/dev/sda')
+        runtime.check_disk_tree(tree, '/dev/sda')
+
     def test_target_refuses_host_root_and_unmounted_directory(self):
         class GS:
             def value(self, _):

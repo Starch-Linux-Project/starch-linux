@@ -8,9 +8,11 @@ def run(gs):
     if gs.value('partitionChoices') != {'install': 'erase', 'swap': 'none'}:
         raise RuntimeError('Only erase-disk installation without disk swap is supported.')
     disk = selected_disk(gs)
+    command(['udevadm', 'settle'], timeout=30)
     tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
                               'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
     deactivate_disk(tree, disk)
+    command(['udevadm', 'settle'], timeout=30)
     tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
                               'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
     check_disk_tree(tree, disk)
