@@ -19,7 +19,9 @@ These decisions define the supported product scope. Changes require project appr
 ### 3.2 Kernel, boot and storage
 
 - Installed kernel: Arch `linux-lts` only.
-- Bootloader: GRUB.
+- Bootloader: experimental Limine on UEFI, with GRUB retained as a recovery
+  loader. Legacy BIOS continues to use GRUB until the Limine prototype has
+  passed installation and update testing.
 - Firmware modes: UEFI and legacy BIOS are both supported.
 - Installation layout: erase the entire selected disk only.
 - Dual boot and install-alongside workflows are not supported.
