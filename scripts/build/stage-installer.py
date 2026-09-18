@@ -6,8 +6,38 @@ import sys
 
 SOURCE = Path(__file__).resolve().parents[2]
 
+LUU_FILES = {
+    'appimage': Path('usr/local/bin/linux-update-utility.AppImage'),
+    'icon': Path('usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg'),
+    'desktop': Path('usr/share/applications/linux-update-utility.desktop'),
+}
 
-def stage(profile):
+
+def stage_luu(fs, input_dir=None):
+    """Install local LUU inputs into the live image and installed-system overlay."""
+    input_dir = Path(input_dir) if input_dir is not None else SOURCE / 'luu-input'
+    appimages = list(input_dir.glob('*.AppImage'))
+    icons = list(input_dir.glob('*.svg'))
+    if not appimages and not icons:
+        return
+    if len(appimages) != 1 or len(icons) != 1:
+        raise RuntimeError('luu-input must contain exactly one *.AppImage and one *.svg file')
+    if any(path.is_symlink() or not path.is_file() for path in (*appimages, *icons)):
+        raise RuntimeError('Linux Update Utility inputs must be regular, non-symlink files')
+
+    desktop = SOURCE / 'packages/linux-update-utility/linux-update-utility.desktop'
+    sources = {'appimage': appimages[0], 'icon': icons[0], 'desktop': desktop}
+    overlay = fs / 'usr/share/starch-installer/target-overlay'
+    for name, relative in LUU_FILES.items():
+        mode = 0o755 if name == 'appimage' else 0o644
+        for root in (fs, overlay):
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(sources[name], destination)
+            destination.chmod(mode)
+
+
+def stage(profile, luu_input=None):
     fs = profile / 'airootfs'
     config = fs / 'etc/calamares'
     shutil.copytree(SOURCE / 'calamares', config, dirs_exist_ok=True)
@@ -48,12 +78,13 @@ def stage(profile):
     (konsole.parent / 'Starch.profile').write_text(konsole.read_text().replace('Name=Starch Live', 'Name=Starch'))
     konsole.unlink()
     (overlay / 'etc/xdg/konsolerc').write_text('[Desktop Entry]\nDefaultProfile=Starch.profile\n')
+    stage_luu(fs, luu_input)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE')
+    if len(sys.argv) not in (2, 3):
+        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE [LUU_INPUT]')
     profile = Path(sys.argv[1]).resolve()
     if profile == (SOURCE / 'archiso/profile').resolve() or not (profile / 'profiledef.sh').is_file():
         sys.exit('Installer staging requires a generated profile snapshot.')
-    stage(profile)
+    stage(profile, sys.argv[2] if len(sys.argv) == 3 else None)

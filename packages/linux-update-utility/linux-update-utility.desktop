@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Linux Update Utility
+Comment=Update your Linux system through a graphical interface
+Exec=/usr/local/bin/linux-update-utility.AppImage
+Icon=/usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true
+StartupWMClass=linux-update-utility

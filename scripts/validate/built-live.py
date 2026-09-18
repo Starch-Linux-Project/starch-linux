@@ -11,6 +11,15 @@ home = root / users["liveuser"][5].lstrip("/")
 assert home.is_dir() and home.stat().st_uid == int(users["liveuser"][2]), "Live home ownership incorrect"
 for path in ["usr/share/wayland-sessions/plasma.desktop", "usr/bin/fish", "usr/bin/fastfetch", "usr/bin/konsole", "usr/bin/firefox", "usr/bin/nautilus", "usr/lib/systemd/system/sddm.service"]:
     assert (root / path).is_file(), f"Missing {path}"
+luu_modes = {
+    "usr/local/bin/linux-update-utility.AppImage": 0o755,
+    "usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg": 0o644,
+    "usr/share/applications/linux-update-utility.desktop": 0o644,
+}
+for path, mode in luu_modes.items():
+    artifact = root / path
+    assert artifact.is_file(), f"Missing Linux Update Utility artifact: {path}"
+    assert artifact.stat().st_mode & 0o777 == mode, f"Wrong mode for {path}"
 settings = configparser.ConfigParser()
 settings.optionxform = str
 settings.read(home / ".config/kdeglobals")

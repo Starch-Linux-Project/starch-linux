@@ -75,6 +75,12 @@ Calamares must show a conspicuous final warning that every partition on the sele
 - This limitation is intentional and must be documented: an older installation can retain an outdated or broken Starch Help Utility.
 - The Linux Update Utility is a separate standalone project. Do not merge its source or architecture into Starch Help Utility.
 - If the Linux Update Utility is preinstalled, consume it as a separately built, license-cleared artifact; keep its source repository and release process independent.
+- The ISO build consumes one local Linux Update Utility AppImage and its SVG
+  icon from the Git-ignored `luu-input/` directory. Starch owns only the
+  desktop integration; the utility remains an independently built artifact.
+- Install the same captured artifact in the live environment and target system
+  at `/usr/local/bin/linux-update-utility.AppImage`. It has no independent
+  update channel managed by Starch after installation.
 - Starch does not stage, delay or test Arch updates before users receive them.
 - A broken Arch update can result in a broken Starch system. Starch does not promise snapshots, rollback or an additional recovery layer.
 
@@ -139,4 +145,4 @@ Contributors must not quietly add any of the following:
 
 ## Deferred approvals
 
-Core-service packages require a representative-system inventory and reviewed manifest approval. Optional applications, updater inclusion, final artwork, GPU support claims and release signing remain deferred. Do not infer choices from an arbitrary host's installed packages.
+Core-service packages require a representative-system inventory and reviewed manifest approval. Optional applications, final system artwork, GPU support claims and release signing remain deferred. Do not infer choices from an arbitrary host's installed packages.

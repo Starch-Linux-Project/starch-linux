@@ -48,6 +48,14 @@ def run(gs):
                  'usr/share/wayland-sessions/plasma.desktop'):
         if not (root / name).is_file() or not (root / name).stat().st_size:
             raise RuntimeError(f'Missing installed file: {name}')
+    for name, mode in {
+        'usr/local/bin/linux-update-utility.AppImage': 0o755,
+        'usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg': 0o644,
+        'usr/share/applications/linux-update-utility.desktop': 0o644,
+    }.items():
+        artifact = root / name
+        if not artifact.is_file() or artifact.stat().st_mode & 0o777 != mode:
+            raise RuntimeError(f'Missing or incorrectly installed Linux Update Utility file: {name}')
     if (root / 'etc/starch-live').exists() or (root / 'etc/sudoers.d/10-starch-live').exists():
         raise RuntimeError('Live-only configuration leaked into the target.')
     if 'NOPASSWD' in (root / 'etc/sudoers.d/10-installer').read_text():

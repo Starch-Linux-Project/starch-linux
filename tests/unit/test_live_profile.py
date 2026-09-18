@@ -63,7 +63,7 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus"}.issubset(packages))
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
 
@@ -72,6 +72,16 @@ class LiveProfile(unittest.TestCase):
         self.assertIn("--preserve-env=DISPLAY,XAUTHORITY", launcher)
         self.assertIn("export QT_QPA_PLATFORM=xcb", launcher)
         self.assertNotIn("--preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR", launcher)
+
+    def test_linux_update_utility_archiso_permissions(self):
+        profiledef = (PROFILE / "profiledef.sh").read_text()
+        expected = {
+            "/usr/local/bin/linux-update-utility.AppImage": "0:0:755",
+            "/usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg": "0:0:644",
+            "/usr/share/applications/linux-update-utility.desktop": "0:0:644",
+        }
+        for path, ownership_and_mode in expected.items():
+            self.assertIn(f'["{path}"]="{ownership_and_mode}"', profiledef)
 
     def test_plasma_dark_theme_and_default_launchers(self):
         kdeglobals = configparser.ConfigParser()

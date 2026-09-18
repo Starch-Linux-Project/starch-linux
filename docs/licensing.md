@@ -26,3 +26,11 @@ firmware, source obligations, and Arch branding. Package license strings alone
 do not establish release compliance. Installed packages are downloaded directly
 by the user where possible. Original Starch utilities have no independent
 update channel; older installations may retain outdated or broken versions.
+
+The Linux Update Utility AppImage and icon are local, Git-ignored build inputs;
+their absence from this repository does not remove them from release review.
+Before distributing an ISO that contains them, record their source, exact
+version or revision, rightsholder, license, notices, checksums, and redistribution
+terms in `third-party-provenance.tsv`, and include any required license or source
+materials. The tracked `.desktop` integration is Starch project material. An
+unknown or incompatible license blocks ISO redistribution.
