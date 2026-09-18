@@ -161,3 +161,12 @@ spectacle
 vlc
 vlc-plugins-all
 gwenview
+git
+curl
+expat
+gettext
+perl
+zlib
+kwallet
+kwallet-pam
+kwalletmanager

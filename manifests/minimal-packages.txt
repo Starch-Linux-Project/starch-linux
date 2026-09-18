@@ -42,3 +42,12 @@ vlc
 vlc-plugins-all
 gwenview
 man-db
+git
+curl
+expat
+gettext
+perl
+zlib
+kwallet
+kwallet-pam
+kwalletmanager
