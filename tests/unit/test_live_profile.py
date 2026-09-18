@@ -65,7 +65,7 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif"}.issubset(packages))
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
 

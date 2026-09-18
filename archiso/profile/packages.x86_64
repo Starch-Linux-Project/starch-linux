@@ -171,3 +171,9 @@ zlib
 kwallet
 kwallet-pam
 kwalletmanager
+base-devel
+qt6-base
+cmake
+jxrlib
+libavif
+libheif
