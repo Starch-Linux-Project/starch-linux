@@ -44,7 +44,9 @@ class LiveProfile(unittest.TestCase):
         hook = configparser.ConfigParser(strict=False)
         hook.read(FS / "etc/pacman.d/hooks/90-starch-live-user.hook")
         script = hook["Action"]["Exec"].split()[-1]
-        self.assertTrue((FS / script.lstrip("/")).is_file())
+        setup_script = FS / script.lstrip("/")
+        self.assertTrue(setup_script.is_file())
+        self.assertIn("'liveuser:root' | chpasswd", setup_script.read_text())
         self.assertFalse((units / "getty@tty1.service.d/autologin.conf").exists())
         self.assertIn("root:/root:/usr/bin/bash", (FS / "etc/passwd").read_text())
 
