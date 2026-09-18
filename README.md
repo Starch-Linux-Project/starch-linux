@@ -19,6 +19,7 @@ used to produce a bootable live ISO and install a minimal desktop system.
 - NetworkManager and Plasma network controls
 - PipeWire and WirePlumber audio
 - Fish, Konsole, Firefox, Nautilus, Fastfetch, and zram
+- Linux Update Utility in the live environment and installed system
 - A reproducible build layout with source snapshots, checksums, and validation
   reports
 
@@ -76,6 +77,10 @@ unshare --map-auto --map-root-user -- id
 Use the repository build wrapper so the Calamares package and local repository
 are staged into a fresh Archiso profile:
 
+Before building, add the Linux Update Utility AppImage and icon as described in
+[docs/linux-update-utility.md](docs/linux-update-utility.md). Both inputs are
+required and remain outside version control.
+
 ```bash
 ./build.sh --build
 ```
@@ -119,6 +124,8 @@ before booting it.
 | `calamares/` | Installer sequence, configuration, and branding |
 | `manifests/` | Requested packages for the installed system |
 | `packages/calamares/` | Pinned Calamares package sources and patches |
+| `packages/linux-update-utility/` | Tracked desktop integration for Linux Update Utility |
+| `luu-input/` | Git-ignored AppImage and SVG inputs supplied by the builder |
 | `scripts/build/` | Build and staging helpers |
 | `scripts/installer/` | Installation, target configuration, and validation jobs |
 | `scripts/validate/` | Generated-system validation tools |

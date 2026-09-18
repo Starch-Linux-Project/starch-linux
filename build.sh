@@ -25,6 +25,23 @@ for file in profiledef.sh packages.x86_64 pacman.conf; do
     if [[ ! -f "$REPO_ROOT/archiso/profile/$file" ]]; then echo "Missing profile file: $file" >&2; failed=1; fi
 done
 if [[ ! -d "$REPO_ROOT/archiso/profile/airootfs" ]]; then echo 'Missing profile airootfs directory' >&2; failed=1; fi
+shopt -s nullglob
+luu_appimages=("$REPO_ROOT/luu-input/"*.AppImage)
+luu_icons=("$REPO_ROOT/luu-input/"*.svg)
+if (( ${#luu_appimages[@]} != 1 )); then
+    echo 'luu-input must contain exactly one *.AppImage file' >&2
+    failed=1
+elif [[ ! -f ${luu_appimages[0]} || -L ${luu_appimages[0]} ]]; then
+    echo 'The Linux Update Utility AppImage must be a regular, non-symlink file' >&2
+    failed=1
+fi
+if (( ${#luu_icons[@]} != 1 )); then
+    echo 'luu-input must contain exactly one *.svg icon file' >&2
+    failed=1
+elif [[ ! -f ${luu_icons[0]} || -L ${luu_icons[0]} ]]; then
+    echo 'The Linux Update Utility icon must be a regular, non-symlink file' >&2
+    failed=1
+fi
 available=$(df -Pk -- "$REPO_ROOT" | awk 'NR==2 {print $4}')
 if [[ ! $available =~ ^[0-9]+$ ]] || (( available < 20 * 1024 * 1024 )); then
     echo 'Need at least 20 GiB available (provisional development threshold)' >&2; failed=1
@@ -70,7 +87,8 @@ report_exit() {
 trap report_exit EXIT
 # Snapshot inputs so edits during a build cannot change what it consumes.
 cp -a -- "$REPO_ROOT/archiso/profile" "$run_dir/profile"
-python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile"
+cp -a -- "$REPO_ROOT/luu-input" "$run_dir/luu-input"
+python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input"
 cp -a -- "$REPO_ROOT/build/calamares/repo" "$run_dir/installer-repo"
 printf '\ncalamares-starch\n' >>"$run_dir/profile/packages.x86_64"
 printf '\n[starch]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$run_dir/installer-repo" >>"$run_dir/profile/pacman.conf"
@@ -97,7 +115,6 @@ else
     unshare --map-auto --map-root-user -- python3 "$REPO_ROOT/scripts/validate/built-live.py" "$run_dir/work/x86_64/airootfs"
 fi
 awk '$1 == "linux" || $1 == "plasma-workspace" || $1 == "sddm" || $1 == "fastfetch"' "$output/live-packages.txt" >>"$output/build-report.txt"
-shopt -s nullglob
 isos=("$output/"*.iso)
 (( ${#isos[@]} == 1 )) || { echo 'Expected exactly one ISO' >&2; exit 1; }
 (cd -- "$output" && sha256sum -- "${isos[0]##*/}" >SHA256SUMS)

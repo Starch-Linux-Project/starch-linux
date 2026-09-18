@@ -5,6 +5,9 @@
 /starch-out/
 *.iso
 
+# Locally supplied Linux Update Utility binaries and artwork
+/luu-input/
+
 # Local agent configuration
 /.agents/
 /.codex/

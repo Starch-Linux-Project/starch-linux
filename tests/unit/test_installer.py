@@ -212,6 +212,7 @@ class InstallerSafety(unittest.TestCase):
         packages = runtime.read_manifest(ROOT / 'manifests/minimal-packages.txt')
         self.assertIn('linux-lts', packages)
         self.assertIn('limine', packages)
+        self.assertIn('fuse2', packages)
         self.assertNotIn('grub', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
 
@@ -290,3 +291,27 @@ class InstallerSafety(unittest.TestCase):
                          'etc/systemd/system', 'etc/NetworkManager', 'home/liveuser'):
                 self.assertFalse((overlay / path).exists(), path)
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
+
+    def test_linux_update_utility_is_staged_for_live_and_installed_systems(self):
+        spec = importlib.util.spec_from_file_location('stage_luu', ROOT / 'scripts/build/stage-installer.py')
+        stage = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stage)
+        with tempfile.TemporaryDirectory() as d:
+            temporary = Path(d)
+            fs = temporary / 'airootfs'
+            inputs = temporary / 'inputs'
+            inputs.mkdir()
+            (inputs / 'arbitrary-name.AppImage').write_bytes(b'appimage fixture')
+            (inputs / 'arbitrary-name.svg').write_text('<svg/>\n')
+            stage.stage_luu(fs, inputs)
+            expected_desktop = (ROOT / 'packages/linux-update-utility/linux-update-utility.desktop').read_text()
+            for root in (fs, fs / 'usr/share/starch-installer/target-overlay'):
+                appimage = root / 'usr/local/bin/linux-update-utility.AppImage'
+                icon = root / 'usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg'
+                desktop = root / 'usr/share/applications/linux-update-utility.desktop'
+                self.assertEqual(appimage.read_bytes(), b'appimage fixture')
+                self.assertEqual(icon.read_text(), '<svg/>\n')
+                self.assertEqual(desktop.read_text(), expected_desktop)
+                self.assertEqual(appimage.stat().st_mode & 0o777, 0o755)
+                self.assertEqual(icon.stat().st_mode & 0o777, 0o644)
+                self.assertEqual(desktop.stat().st_mode & 0o777, 0o644)

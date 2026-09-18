@@ -10,6 +10,7 @@ dosfstools
 e2fsprogs
 sudo
 fish
+fuse2
 networkmanager
 plasma-desktop
 plasma-workspace

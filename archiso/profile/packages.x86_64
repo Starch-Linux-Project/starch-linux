@@ -142,6 +142,7 @@ sddm
 breeze
 konsole
 fish
+fuse2
 mesa
 qt6-wayland
 xorg-xwayland
