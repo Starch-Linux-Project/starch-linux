@@ -44,8 +44,8 @@ def run(gs):
     shadow = {p[0]: p[1] for p in (line.split(':') for line in (root / 'etc/shadow').read_text().splitlines())}
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
         raise RuntimeError('Installed account password state is incorrect.')
-    for name in ('boot/vmlinuz-linux-lts', 'boot/initramfs-linux-lts.img', 'boot/grub/grub.cfg',
-                 'etc/locale.conf', 'etc/hostname', 'usr/share/wayland-sessions/plasma.desktop'):
+    for name in ('boot/vmlinuz-linux-lts', 'etc/locale.conf', 'etc/hostname',
+                 'usr/share/wayland-sessions/plasma.desktop'):
         if not (root / name).is_file() or not (root / name).stat().st_size:
             raise RuntimeError(f'Missing installed file: {name}')
     if (root / 'etc/starch-live').exists() or (root / 'etc/sudoers.d/10-starch-live').exists():
@@ -56,7 +56,7 @@ def run(gs):
     # SDDM's default Wayland compositor is Weston, which we do not install.
     # Check KWin inside the target so a missing executable stops installation.
     chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
-    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'grub', 'limine', 'fish', 'sddm', 'networkmanager')
+    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'limine', 'fish', 'sddm', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -72,23 +72,22 @@ def run(gs):
     if gs.value('firmwareType') == 'efi':
         if not re.search(r'^UUID=\S+\s+/boot/efi\s+vfat\s', fstab, re.M):
             raise RuntimeError('EFI mount is missing from fstab.')
-        for name in ('boot/efi/EFI/Starch/grubx64.efi', 'boot/efi/EFI/boot/bootx64.efi'):
-            if not (root / name).is_file():
-                raise RuntimeError(f'Missing EFI loader: {name}')
-        for name in ('boot/efi/EFI/Limine/BOOTX64.EFI', 'boot/efi/EFI/Limine/limine.conf'):
+        for name in ('boot/efi/EFI/Limine/BOOTX64.EFI', 'boot/efi/EFI/Limine/limine.conf',
+                     'boot/efi/EFI/BOOT/BOOTX64.EFI', 'boot/efi/EFI/BOOT/limine.conf',
+                     'boot/efi/EFI/Linux/starch-linux-lts.efi'):
             if not (root / name).is_file() or not (root / name).stat().st_size:
                 raise RuntimeError(f'Missing Limine EFI file: {name}')
         limine = (root / 'boot/efi/EFI/Limine/limine.conf').read_text()
-        if ('protocol: linux' not in limine or 'vmlinuz-linux-lts' not in limine or
-                'initramfs-linux-lts.img' not in limine or 'root=UUID=' not in limine):
-            raise RuntimeError('Limine has no complete LTS kernel entry.')
-    elif not (root / 'boot/grub/i386-pc/core.img').is_file():
-        raise RuntimeError('BIOS GRUB core image is missing.')
-    grub = (root / 'boot/grub/grub.cfg').read_text()
-    if 'vmlinuz-linux-lts' not in grub or 'initramfs-linux-lts.img' not in grub:
-        raise RuntimeError('GRUB has no LTS kernel/initramfs entry.')
+        if 'protocol: efi' not in limine or 'EFI/Linux/starch-linux-lts.efi' not in limine:
+            raise RuntimeError('Limine has no Starch UKI entry.')
+    else:
+        for name in ('boot/initramfs-linux-lts.img', 'boot/limine/limine-bios.sys',
+                     'boot/limine/limine.conf'):
+            if not (root / name).is_file() or not (root / name).stat().st_size:
+                raise RuntimeError(f'Missing Limine BIOS file: {name}')
     versions = output(['arch-chroot', root, 'pacman', '-Q'])
-    if any(line.split()[0] in {'calamares', 'mkinitcpio-archiso', 'archinstall', 'linux', 'plasma-x11-session'} for line in versions.splitlines()):
+    if any(line.split()[0] in {'calamares', 'grub', 'mkinitcpio-archiso', 'archinstall', 'linux',
+                               'plasma-x11-session'} for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')
     preserve_logs(root)
     (root / 'var/log/starch-installer/installed-packages.txt').write_text(versions + '\n')

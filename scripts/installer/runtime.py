@@ -215,7 +215,7 @@ def target(gs):
     else:
         boot = gs.value('bootLoader') or {}
         if boot.get('installPath') != disk:
-            raise RuntimeError('GRUB must install to the selected disk.')
+            raise RuntimeError('The bootloader must install to the selected disk.')
     return root
 
 
