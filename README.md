@@ -15,7 +15,7 @@ used to produce a bootable live ISO and install a minimal desktop system.
 - KDE Plasma desktop running on Wayland
 - Calamares online installer backed by official Arch Linux repositories
 - BIOS and UEFI boot support
-- Experimental Limine UEFI entry with GRUB retained as the recovery loader
+- Limine as the installed system's sole bootloader
 - NetworkManager and Plasma network controls
 - PipeWire and WirePlumber audio
 - Fish, Konsole, Firefox, Nautilus, Fastfetch, and zram
@@ -26,6 +26,16 @@ The installer currently supports whole-disk erase only. It does not offer
 manual partitioning, install-alongside, disk encryption, disk swap, or an X11
 Plasma session.
 
+On UEFI systems, mkinitcpio builds the LTS kernel, initramfs, microcode, and
+kernel command line into `/boot/efi/EFI/Linux/starch-linux-lts.efi`. Limine
+chainloads that UKI and is installed at both its named EFI path and the standard
+fallback path. Legacy BIOS installations use Limine's native Linux boot
+protocol. GRUB is not installed on the target system.
+
+The live ISO continues to use Archiso's native live-media boot layout. Those
+boot files and packages are build-time/live-environment details and do not
+define the bootloader installed by Starch.
+
 The live desktop itself remains a Plasma Wayland session. Because Calamares
 runs with root privileges, its launcher uses the session's XWayland display and
 preserves `DISPLAY` and `XAUTHORITY` across `sudo`; passing the live user's
@@ -35,10 +45,10 @@ Plasma session is not provided.
 
 ## Project status
 
-The live environment, Calamares installation, installed-system boot, and Plasma
-desktop have completed an end-to-end VM test. The latest installer presentation
-changes have been packaged and smoke-tested, but still need a fresh ISO build
-and interactive VM test.
+The live environment, Calamares installation, Limine/UKI installed-system boot,
+and Plasma desktop have completed an end-to-end UEFI VM test. Legacy BIOS
+installation remains supported and should continue to be covered by release
+testing.
 
 See [docs/release-checklist.md](docs/release-checklist.md) for the remaining
 release gates and [docs/decisions.md](docs/decisions.md) for the supported scope
@@ -49,7 +59,7 @@ and non-goals.
 Build on an up-to-date Arch Linux system with at least 20 GiB of free space.
 
 ```bash
-sudo pacman -Syu --needed base-devel archiso arch-install-scripts grub limine \
+sudo pacman -Syu --needed base-devel archiso arch-install-scripts limine \
   qemu-desktop edk2-ovmf shellcheck python python-yaml
 ```
 

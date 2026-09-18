@@ -4,7 +4,6 @@ linux-lts
 linux-firmware
 sof-firmware
 mkinitcpio
-grub
 limine
 efibootmgr
 dosfstools
