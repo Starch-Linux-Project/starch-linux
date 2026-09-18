@@ -8,6 +8,9 @@
 # Locally supplied Linux Update Utility binaries and artwork
 /luu-input/
 
+# Locally supplied Starch branding assets
+/starch-branding/
+
 # Local agent configuration
 /.agents/
 /.codex/

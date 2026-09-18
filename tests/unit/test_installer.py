@@ -213,6 +213,7 @@ class InstallerSafety(unittest.TestCase):
         self.assertIn('linux-lts', packages)
         self.assertIn('limine', packages)
         self.assertIn('fuse2', packages)
+        self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif'}.issubset(packages))
         self.assertNotIn('grub', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
 
