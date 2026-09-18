@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / 'scripts/installer'))
 import runtime
 import preflight
 import configure
+import limine
 import validate
 
 
@@ -199,12 +200,55 @@ class InstallerSafety(unittest.TestCase):
         self.assertLess(jobs.index('starch-preflight'), jobs.index('partition'))
         self.assertLess(jobs.index('mount'), jobs.index('starch-bootstrap'))
         self.assertLess(jobs.index('bootloader'), jobs.index('starch-validate'))
+        self.assertLess(jobs.index('bootloader'), jobs.index('starch-limine'))
+        self.assertLess(jobs.index('starch-limine'), jobs.index('starch-validate'))
         self.assertEqual(jobs[-1], 'umount')
         self.assertNotIn('unpackfs', jobs)
         self.assertTrue(settings['prompt-install'])
         packages = runtime.read_manifest(ROOT / 'manifests/minimal-packages.txt')
         self.assertIn('linux-lts', packages)
+        self.assertIn('limine', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
+
+    def test_limine_configuration_chainloads_installed_lts_kernel(self):
+        uuid = '12345678-1234-1234-1234-123456789abc'
+        self.assertEqual(limine.root_uuid(f'UUID={uuid} / ext4 rw,relatime 0 1\n'), uuid)
+        config = limine.configuration(uuid)
+        self.assertIn('protocol: linux', config)
+        self.assertIn(f'path: uuid({uuid}):/boot/vmlinuz-linux-lts', config)
+        self.assertIn(f'module_path: uuid({uuid}):/boot/initramfs-linux-lts.img', config)
+        self.assertIn(f'cmdline: root=UUID={uuid} rw rootfstype=ext4', config)
+        with self.assertRaises(RuntimeError):
+            limine.root_uuid('UUID=ESP /boot/efi vfat defaults 0 2\n')
+
+    def test_limine_installs_alongside_grub_and_registers_efi_entry(self):
+        class GS:
+            values = {
+                'firmwareType': 'efi',
+                'partitions': [{'mountPoint': '/boot/efi', 'device': '/dev/vda1'}],
+            }
+
+            def value(self, name):
+                return self.values.get(name)
+
+        uuid = '12345678-1234-1234-1234-123456789abc'
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'usr/share/limine').mkdir(parents=True)
+            (root / 'usr/share/limine/BOOTX64.EFI').write_bytes(b'limine')
+            (root / 'etc').mkdir()
+            (root / 'etc/fstab').write_text(f'UUID={uuid} / ext4 defaults 0 1\n')
+            with patch.object(limine, 'target', return_value=root), \
+                 patch.object(limine, 'selected_disk', return_value='/dev/vda'), \
+                 patch.object(limine, 'output', return_value='1'), \
+                 patch.object(limine, 'chroot') as chroot:
+                limine.run(GS())
+            self.assertEqual((root / 'boot/efi/EFI/Limine/BOOTX64.EFI').read_bytes(), b'limine')
+            self.assertIn(f'root=UUID={uuid}', (root / 'boot/efi/EFI/Limine/limine.conf').read_text())
+            self.assertTrue((root / 'etc/pacman.d/hooks/99-starch-limine.hook').is_file())
+            chroot.assert_called_once_with(
+                root, 'efibootmgr', '--create', '--disk', '/dev/vda', '--part', '1',
+                '--label', 'Starch Limine', '--loader', r'\EFI\Limine\BOOTX64.EFI')
 
     def test_staged_overlay_excludes_live_credentials_and_services(self):
         spec = importlib.util.spec_from_file_location('stage', ROOT / 'scripts/build/stage-installer.py')

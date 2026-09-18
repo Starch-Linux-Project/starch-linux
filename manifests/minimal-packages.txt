@@ -5,6 +5,7 @@ linux-firmware
 sof-firmware
 mkinitcpio
 grub
+limine
 efibootmgr
 dosfstools
 e2fsprogs

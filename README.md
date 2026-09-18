@@ -15,7 +15,7 @@ used to produce a bootable live ISO and install a minimal desktop system.
 - KDE Plasma desktop running on Wayland
 - Calamares online installer backed by official Arch Linux repositories
 - BIOS and UEFI boot support
-- GRUB with an LTS kernel on the installed system
+- Experimental Limine UEFI entry with GRUB retained as the recovery loader
 - NetworkManager and Plasma network controls
 - PipeWire and WirePlumber audio
 - Fish, Konsole, Firefox, Nautilus, Fastfetch, and zram
@@ -49,7 +49,7 @@ and non-goals.
 Build on an up-to-date Arch Linux system with at least 20 GiB of free space.
 
 ```bash
-sudo pacman -Syu --needed base-devel archiso arch-install-scripts grub \
+sudo pacman -Syu --needed base-devel archiso arch-install-scripts grub limine \
   qemu-desktop edk2-ovmf shellcheck python python-yaml
 ```
 
