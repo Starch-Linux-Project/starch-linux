@@ -56,7 +56,7 @@ def run(gs):
     # SDDM's default Wayland compositor is Weston, which we do not install.
     # Check KWin inside the target so a missing executable stops installation.
     chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
-    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'grub', 'fish', 'sddm', 'networkmanager')
+    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'grub', 'limine', 'fish', 'sddm', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -75,6 +75,13 @@ def run(gs):
         for name in ('boot/efi/EFI/Starch/grubx64.efi', 'boot/efi/EFI/boot/bootx64.efi'):
             if not (root / name).is_file():
                 raise RuntimeError(f'Missing EFI loader: {name}')
+        for name in ('boot/efi/EFI/Limine/BOOTX64.EFI', 'boot/efi/EFI/Limine/limine.conf'):
+            if not (root / name).is_file() or not (root / name).stat().st_size:
+                raise RuntimeError(f'Missing Limine EFI file: {name}')
+        limine = (root / 'boot/efi/EFI/Limine/limine.conf').read_text()
+        if ('protocol: linux' not in limine or 'vmlinuz-linux-lts' not in limine or
+                'initramfs-linux-lts.img' not in limine or 'root=UUID=' not in limine):
+            raise RuntimeError('Limine has no complete LTS kernel entry.')
     elif not (root / 'boot/grub/i386-pc/core.img').is_file():
         raise RuntimeError('BIOS GRUB core image is missing.')
     grub = (root / 'boot/grub/grub.cfg').read_text()

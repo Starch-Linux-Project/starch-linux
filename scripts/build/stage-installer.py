@@ -17,7 +17,7 @@ def stage(profile):
     shutil.copyfile(SOURCE / 'calamares/pacman.conf', data / 'pacman.conf')
     runtime = fs / 'usr/lib/starch-installer'
     shutil.copytree(SOURCE / 'scripts/installer', runtime, ignore=shutil.ignore_patterns('__pycache__'), dirs_exist_ok=True)
-    for name in ('preflight', 'bootstrap', 'configure', 'validate'):
+    for name in ('preflight', 'bootstrap', 'configure', 'limine', 'validate'):
         (config / 'modules' / f'starch-{name}.conf').write_text('{}\n')
         module = fs / 'usr/lib/calamares/modules' / f'starch-{name}'
         module.mkdir(parents=True, exist_ok=True)
