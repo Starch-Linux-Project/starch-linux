@@ -26,7 +26,12 @@ class InstallerSafety(unittest.TestCase):
         self.assertNotIn('test installer', branding['strings']['versionedName'].lower())
         self.assertTrue(branding['strings']['productUrl'].startswith('https://'))
         self.assertEqual(branding['strings']['supportUrl'], branding['strings']['productUrl'])
-        self.assertEqual(branding['images']['productBanner'], 'banner.svg')
+        logo = ROOT / 'calamares/branding/starch/starchlinux.png'
+        self.assertEqual(branding['images']['productBanner'], logo.name)
+        self.assertTrue(logo.is_file())
+        png = logo.read_bytes()
+        self.assertEqual(png[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertEqual((int.from_bytes(png[16:20]), int.from_bytes(png[20:24])), (64, 64))
 
         for name in ('welcome.html', 'slideshow.html'):
             content = (ROOT / 'calamares/branding/starch' / name).read_text()
@@ -213,7 +218,7 @@ class InstallerSafety(unittest.TestCase):
         self.assertIn('linux-lts', packages)
         self.assertIn('limine', packages)
         self.assertIn('fuse2', packages)
-        self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif'}.issubset(packages))
+        self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif', 'nftables'}.issubset(packages))
         self.assertNotIn('grub', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
 
@@ -292,6 +297,8 @@ class InstallerSafety(unittest.TestCase):
                          'etc/systemd/system', 'etc/NetworkManager', 'home/liveuser'):
                 self.assertFalse((overlay / path).exists(), path)
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
+            self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
+                             (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())
 
     def test_linux_update_utility_is_staged_for_live_and_installed_systems(self):
         spec = importlib.util.spec_from_file_location('stage_luu', ROOT / 'scripts/build/stage-installer.py')
@@ -316,3 +323,27 @@ class InstallerSafety(unittest.TestCase):
                 self.assertEqual(appimage.stat().st_mode & 0o777, 0o755)
                 self.assertEqual(icon.stat().st_mode & 0o777, 0o644)
                 self.assertEqual(desktop.stat().st_mode & 0o777, 0o644)
+
+    def test_wallpapers_are_packaged_for_live_and_installed_systems(self):
+        spec = importlib.util.spec_from_file_location('stage_wallpapers', ROOT / 'scripts/build/stage-installer.py')
+        stage = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stage)
+        with tempfile.TemporaryDirectory() as d:
+            temporary = Path(d)
+            fs = temporary / 'airootfs'
+            inputs = temporary / 'wallpapers'
+            (inputs / 'landscapes').mkdir(parents=True)
+            (inputs / 'landscapes/Starch_Night.PNG').write_bytes(b'png fixture')
+            (inputs / 'notes.txt').write_text('not a wallpaper')
+            stage.stage_wallpapers(fs, inputs)
+            packages = list((fs / 'usr/share/wallpapers').iterdir())
+            self.assertEqual(len(packages), 1)
+            package = packages[0]
+            metadata = json.loads((package / 'metadata.json').read_text())
+            self.assertEqual(metadata['KPlugin']['Name'], 'Starch Night')
+            self.assertEqual(metadata['KPackageStructure'], 'Plasma/Wallpaper')
+            image = package / 'contents/images/3840x2160.png'
+            self.assertEqual(image.read_bytes(), b'png fixture')
+            installed = fs / 'usr/share/starch-installer/target-overlay/usr/share/wallpapers' / package.name
+            self.assertEqual((installed / 'metadata.json').read_text(), (package / 'metadata.json').read_text())
+            self.assertEqual((installed / 'contents/images/3840x2160.png').read_bytes(), b'png fixture')

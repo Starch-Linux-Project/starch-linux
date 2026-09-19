@@ -32,6 +32,10 @@ for launcher in ("firefox.desktop", "org.gnome.Nautilus.desktop", "org.kde.konso
 sudoers = root / "etc/sudoers.d/10-starch-live"
 assert sudoers.stat().st_uid == 0 and sudoers.stat().st_mode & 0o777 == 0o440, "Unsafe sudoers permissions"
 assert not (root / "etc/pacman.d/hooks/90-starch-live-user.hook").exists(), "Build-only hook left in image"
+firewall = root / "etc/nftables.conf"
+assert firewall.is_file() and "table inet starch_filter" in firewall.read_text(), "Missing nftables ruleset"
+nftables_service = root / "etc/systemd/system/multi-user.target.wants/nftables.service"
+assert nftables_service.is_symlink() and nftables_service.readlink().as_posix() == "/usr/lib/systemd/system/nftables.service", "nftables service is not enabled"
 print("Built live filesystem validation passed")
 for path in ["usr/bin/calamares", "usr/local/bin/starch-install", "etc/calamares/settings.conf",
              "usr/share/applications/starch-install.desktop", "usr/share/starch-installer/minimal-packages.txt",

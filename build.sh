@@ -25,6 +25,10 @@ for file in profiledef.sh packages.x86_64 pacman.conf; do
     if [[ ! -f "$REPO_ROOT/archiso/profile/$file" ]]; then echo "Missing profile file: $file" >&2; failed=1; fi
 done
 if [[ ! -d "$REPO_ROOT/archiso/profile/airootfs" ]]; then echo 'Missing profile airootfs directory' >&2; failed=1; fi
+if [[ -L "$REPO_ROOT/wallpapers" || ! -d "$REPO_ROOT/wallpapers" ]]; then
+    echo 'wallpapers must be a real directory' >&2
+    failed=1
+fi
 shopt -s nullglob
 luu_appimages=("$REPO_ROOT/luu-input/"*.AppImage)
 luu_icons=("$REPO_ROOT/luu-input/"*.svg)
@@ -88,7 +92,8 @@ trap report_exit EXIT
 # Snapshot inputs so edits during a build cannot change what it consumes.
 cp -a -- "$REPO_ROOT/archiso/profile" "$run_dir/profile"
 cp -a -- "$REPO_ROOT/luu-input" "$run_dir/luu-input"
-python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input"
+cp -a -- "$REPO_ROOT/wallpapers" "$run_dir/wallpapers"
+python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input" "$run_dir/wallpapers"
 cp -a -- "$REPO_ROOT/build/calamares/repo" "$run_dir/installer-repo"
 printf '\ncalamares-starch\n' >>"$run_dir/profile/packages.x86_64"
 printf '\n[starch]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$run_dir/installer-repo" >>"$run_dir/profile/pacman.conf"
@@ -102,7 +107,7 @@ cat "$run_dir/installer-repo/package-version.txt" >>"$output/build-report.txt"
 cp -- "$REPO_ROOT/manifests/minimal-packages.txt" "$output/target-requested-packages.txt"
 cp -a -- "$run_dir/installer-repo/sources" "$output/calamares-sources"
 cp -a -- "$run_dir/installer-repo/notices" "$output/calamares-notices"
-tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares tests README.md docs/third-party-provenance.tsv
+tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares wallpapers tests README.md docs/third-party-provenance.tsv
 cp -- "$run_dir/profile/packages.x86_64" "$output/requested-packages.txt"
 # Preserve the exact source profile, including symlinks and file permissions.
 tar -C "$run_dir" -czf "$output/profile-source.tar.gz" profile

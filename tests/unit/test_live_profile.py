@@ -65,9 +65,20 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
+
+    def test_nftables_workstation_firewall(self):
+        rules = (FS / "etc/nftables.conf").read_text()
+        self.assertIn('table inet starch_filter', rules)
+        self.assertIn('ct state { established, related } accept', rules)
+        self.assertIn('chain input {', rules)
+        self.assertIn('hook input priority filter; policy drop;', rules)
+        self.assertIn('hook forward priority filter; policy drop;', rules)
+        self.assertIn('hook output priority filter; policy accept;', rules)
+        service = FS / "etc/systemd/system/multi-user.target.wants/nftables.service"
+        self.assertEqual(str(service.readlink()), "/usr/lib/systemd/system/nftables.service")
 
     def test_installer_uses_xwayland_across_sudo(self):
         launcher = (FS / "usr/local/bin/starch-install").read_text()
@@ -79,6 +90,7 @@ class LiveProfile(unittest.TestCase):
         profiledef = (PROFILE / "profiledef.sh").read_text()
         expected = {
             "/usr/local/bin/linux-update-utility.AppImage": "0:0:755",
+            "/usr/share/starch-installer/target-overlay/usr/local/bin/linux-update-utility.AppImage": "0:0:755",
             "/usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg": "0:0:644",
             "/usr/share/applications/linux-update-utility.desktop": "0:0:644",
         }

@@ -28,6 +28,7 @@ def run(gs):
             'default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"\n')
     chroot(root, 'usermod', '--shell', '/usr/bin/bash', 'root')
     chroot(root, 'passwd', '--lock', 'root')
-    chroot(root, 'systemctl', 'enable', 'NetworkManager.service', 'sddm.service')
+    chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
+    chroot(root, 'systemctl', 'enable', 'NetworkManager.service', 'nftables.service', 'sddm.service')
     chroot(root, 'systemctl', 'set-default', 'graphical.target')
     chroot(root, 'mkinitcpio', '-P')
