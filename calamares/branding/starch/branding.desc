@@ -20,7 +20,7 @@ strings:
   releaseNotesUrl: ""
   donateUrl: ""
 images:
-  productBanner: banner.svg
+  productBanner: starchlinux.png
 style:
   SidebarBackground: "#232629"
   SidebarText: "#eff0f1"

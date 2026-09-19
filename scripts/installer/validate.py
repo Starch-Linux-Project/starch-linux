@@ -72,7 +72,8 @@ def run(gs):
         raise RuntimeError('The chosen locale was not generated.')
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
-    for service in ('sddm.service', 'NetworkManager.service'):
+    chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
+    for service in ('sddm.service', 'NetworkManager.service', 'nftables.service'):
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):

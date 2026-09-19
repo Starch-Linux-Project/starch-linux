@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Stage maintained installer inputs into a fresh archiso profile snapshot."""
 from pathlib import Path
+import hashlib
+import json
+import re
 import shutil
 import sys
 
@@ -11,6 +14,47 @@ LUU_FILES = {
     'icon': Path('usr/share/icons/hicolor/scalable/apps/linux-update-utility.svg'),
     'desktop': Path('usr/share/applications/linux-update-utility.desktop'),
 }
+
+WALLPAPER_SUFFIXES = {'.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.jxl', '.png', '.svg', '.tif', '.tiff', '.webp'}
+
+
+def stage_wallpapers(fs, input_dir=None):
+    """Turn source images into system Plasma wallpaper packages."""
+    input_dir = Path(input_dir) if input_dir is not None else SOURCE / 'wallpapers'
+    if not input_dir.exists():
+        return
+    if input_dir.is_symlink() or not input_dir.is_dir():
+        raise RuntimeError('wallpapers must be a real directory')
+    images = sorted(path for path in input_dir.rglob('*')
+                    if path.suffix.lower() in WALLPAPER_SUFFIXES)
+    if any(path.is_symlink() or not path.is_file() for path in images):
+        raise RuntimeError('Wallpaper inputs must be regular, non-symlink files')
+
+    overlay = fs / 'usr/share/starch-installer/target-overlay'
+    for source in images:
+        relative = source.relative_to(input_dir).as_posix()
+        slug = re.sub(r'[^a-z0-9]+', '-', source.stem.lower()).strip('-') or 'wallpaper'
+        digest = hashlib.sha256(relative.encode()).hexdigest()[:8]
+        package_name = f'Starch-{slug}-{digest}'
+        plugin_id = f'org.starch.wallpaper.{slug}.{digest}'
+        display_name = re.sub(r'[_-]+', ' ', source.stem).strip().title() or 'Starch Wallpaper'
+        metadata = {
+            'KPlugin': {
+                'Description': 'Wallpaper supplied with Starch Linux',
+                'Id': plugin_id,
+                'Name': display_name,
+            },
+            'KPackageStructure': 'Plasma/Wallpaper',
+        }
+        # Plasma wallpaper packages conventionally identify a single image by
+        # a resolution-shaped filename. Qt still reads the image's real size.
+        image_name = f'3840x2160{source.suffix.lower()}'
+        for root in (fs, overlay):
+            package = root / 'usr/share/wallpapers' / package_name
+            destination = package / 'contents/images' / image_name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            (package / 'metadata.json').write_text(json.dumps(metadata, indent=4) + '\n')
 
 
 def stage_luu(fs, input_dir=None):
@@ -37,7 +81,7 @@ def stage_luu(fs, input_dir=None):
             destination.chmod(mode)
 
 
-def stage(profile, luu_input=None):
+def stage(profile, luu_input=None, wallpaper_input=None):
     fs = profile / 'airootfs'
     config = fs / 'etc/calamares'
     shutil.copytree(SOURCE / 'calamares', config, dirs_exist_ok=True)
@@ -61,6 +105,7 @@ def stage(profile, luu_input=None):
     overlay = data / 'target-overlay'
     # Explicit allowlist: none of the live user, sudo or network state is copied.
     for relative in ('etc/skel/.config/kdeglobals', 'etc/xdg/konsolerc',
+                     'etc/nftables.conf',
                      'etc/fastfetch/config.jsonc', 'usr/share/starch/fastfetch-text',
                      'usr/share/konsole/Starch Live.profile',
                      'usr/share/plasma/look-and-feel/org.starch.desktop'):
@@ -79,12 +124,14 @@ def stage(profile, luu_input=None):
     konsole.unlink()
     (overlay / 'etc/xdg/konsolerc').write_text('[Desktop Entry]\nDefaultProfile=Starch.profile\n')
     stage_luu(fs, luu_input)
+    stage_wallpapers(fs, wallpaper_input)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) not in (2, 3):
-        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE [LUU_INPUT]')
+    if len(sys.argv) not in (2, 3, 4):
+        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE [LUU_INPUT [WALLPAPER_INPUT]]')
     profile = Path(sys.argv[1]).resolve()
     if profile == (SOURCE / 'archiso/profile').resolve() or not (profile / 'profiledef.sh').is_file():
         sys.exit('Installer staging requires a generated profile snapshot.')
-    stage(profile, sys.argv[2] if len(sys.argv) == 3 else None)
+    stage(profile, sys.argv[2] if len(sys.argv) >= 3 else None,
+          sys.argv[3] if len(sys.argv) == 4 else None)

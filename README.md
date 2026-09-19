@@ -126,6 +126,7 @@ before booting it.
 | `packages/calamares/` | Pinned Calamares package sources and patches |
 | `packages/linux-update-utility/` | Tracked desktop integration for Linux Update Utility |
 | `luu-input/` | Git-ignored AppImage and SVG inputs supplied by the builder |
+| `wallpapers/` | Source images automatically packaged into KDE's system wallpaper library |
 | `scripts/build/` | Build and staging helpers |
 | `scripts/installer/` | Installation, target configuration, and validation jobs |
 | `scripts/validate/` | Generated-system validation tools |

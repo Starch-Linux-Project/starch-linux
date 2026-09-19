@@ -58,3 +58,4 @@ cmake
 jxrlib
 libavif
 libheif
+nftables
