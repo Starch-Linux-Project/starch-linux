@@ -56,12 +56,34 @@ if [[ $1 == --ensure && -f $OUTPUT_DIR/INPUT_SHA256 && -f $OUTPUT_DIR/SHA256SUMS
     exit 0
 fi
 
-if [[ ! -x $CHROOT_DIR/usr/bin/pacman ]]; then
-    mkdir -p -- "$CHROOT_DIR"
-    pacstrap -N -C "$PACMAN_CONFIG" -K "$CHROOT_DIR" \
-        base-devel cmake extra-cmake-modules git kpmcore libpwquality ninja \
+chroot_is_ready() {
+    [[ -x $CHROOT_DIR/usr/bin/pacman &&
+       -x $CHROOT_DIR/usr/bin/bash &&
+       -x $CHROOT_DIR/usr/bin/env &&
+       -L $CHROOT_DIR/bin && -L $CHROOT_DIR/lib64 ]]
+}
+
+if ! chroot_is_ready; then
+    mkdir -p -- "$CHROOT_DIR/etc/pacman.d/hooks"
+    # pacstrap uses pacman --root, which otherwise reads the host's custom
+    # hooks directory. Host hooks may be inaccessible in the user namespace.
+    bootstrap_config="$BUILD_ROOT/bootstrap-pacman.conf"
+    awk -v hooks="$CHROOT_DIR/etc/pacman.d/hooks" '
+        { print }
+        /^\[options\]$/ { print "HookDir = " hooks }
+    ' "$PACMAN_CONFIG" > "$bootstrap_config"
+    pacstrap -N -C "$bootstrap_config" -K "$CHROOT_DIR" \
+        base base-devel cmake extra-cmake-modules git kpmcore libpwquality ninja \
         parted polkit-qt6 pybind11 python python-jsonschema qt6-base qt6-svg \
         qt6-tools python-yaml yaml-cpp
+fi
+
+# Some pacstrap versions return the status of their temporary-file cleanup,
+# masking a failed package installation. Check before trying to enter the root.
+if ! chroot_is_ready; then
+    echo "Calamares chroot bootstrap is incomplete: $CHROOT_DIR" >&2
+    echo 'Check the pacstrap errors above, then rerun scripts/build/calamares.sh --build.' >&2
+    exit 1
 fi
 
 # The quoted script expands its positional arguments inside the namespace.
