@@ -19,6 +19,9 @@ def run(gs):
     STATE.mkdir(mode=0o700, exist_ok=True)
     (STATE / 'selection.json').unlink(missing_ok=True)
     packages = read_manifest(DATA / 'minimal-packages.txt') + microcode(Path('/proc/cpuinfo').read_text())
+    # BIOS cannot display the EFI stub's embedded splash.
+    if gs.value('firmwareType') != 'efi' and 'plymouth' not in packages:
+        packages.append('plymouth')
     if not Path('/etc/pacman.d/gnupg/pubring.gpg').is_file():
         raise RuntimeError('The live Arch signing keyring is not ready. Wait for pacman-init and retry.')
     db = Path(tempfile.mkdtemp(prefix='sync-', dir=STATE))

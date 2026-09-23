@@ -104,9 +104,12 @@ def stage(profile, luu_input=None, wallpaper_input=None):
             f'def run():\n    return run_stage("{name}", libcalamares.globalstorage, {name}.run)\n')
     overlay = data / 'target-overlay'
     # Explicit allowlist: none of the live user, sudo or network state is copied.
-    for relative in ('etc/skel/.config/kdeglobals', 'etc/xdg/konsolerc',
+    for relative in ('etc/skel/.config/kdeglobals', 'etc/skel/.config/baloofilerc',
+                     'etc/xdg/konsolerc',
                      'etc/nftables.conf',
                      'etc/fastfetch/config.jsonc', 'usr/share/starch/fastfetch-text',
+                     'usr/share/starch/splash-starch.bmp',
+                     'usr/share/plymouth/themes/starch',
                      'usr/share/konsole/Starch Live.profile',
                      'usr/share/plasma/look-and-feel/org.starch.desktop'):
         source = fs / relative
@@ -116,6 +119,8 @@ def stage(profile, luu_input=None, wallpaper_input=None):
             shutil.copytree(source, dest, dirs_exist_ok=True)
         else:
             shutil.copyfile(source, dest)
+    shutil.copyfile(SOURCE / 'calamares/branding/starch/starchlinux.png',
+                    overlay / 'usr/share/plymouth/themes/starch/logo.png')
     fish = overlay / 'etc/fish/conf.d/10-starch.fish'
     fish.parent.mkdir(parents=True, exist_ok=True)
     fish.write_text('if status is-interactive; and test (id -u) -ne 0\n    fastfetch\nend\n')
