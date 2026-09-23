@@ -203,6 +203,55 @@ class InstallerSafety(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 runtime.command([sys.executable, '-c', 'raise SystemExit(7)'])
 
+    def test_preflight_selects_plymouth_only_for_bios(self):
+        for firmware in ('bios', 'efi'):
+            with self.subTest(firmware=firmware), tempfile.TemporaryDirectory() as d:
+                class GS:
+                    def value(self, name):
+                        return {'firmwareType': firmware,
+                                'partitionChoices': {'install': 'erase', 'swap': 'none'}}.get(name)
+                state = Path(d)
+                with patch.object(preflight, 'STATE', state), \
+                     patch.object(preflight, 'selected_disk', return_value='/dev/vda'), \
+                     patch.object(preflight, 'output', return_value='{}'), \
+                     patch.object(preflight, 'deactivate_disk'), patch.object(preflight, 'check_disk_tree'), \
+                     patch.object(preflight, 'read_manifest', return_value=['base']), \
+                     patch.object(preflight, 'microcode', return_value=[]), \
+                     patch.object(Path, 'is_file', return_value=True), patch.object(preflight, 'command'):
+                    preflight.run(GS())
+                packages = json.loads((state / 'selection.json').read_text())['packages']
+                self.assertEqual('plymouth' in packages, firmware == 'bios')
+
+    def test_bios_splash_is_configured_before_initramfs_generation(self):
+        class GS:
+            def value(self, _):
+                return 'bios'
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'etc').mkdir()
+            (root / 'etc/fstab').write_text('UUID=test-root / ext4 defaults 0 1\n')
+            (root / 'usr/share/limine').mkdir(parents=True)
+            (root / 'usr/share/limine/limine-bios.sys').write_bytes(b'limine')
+            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot') as chroot:
+                configure.run(GS())
+            calls = [c.args[1:] for c in chroot.call_args_list]
+            self.assertLess(calls.index(('plymouth-set-default-theme', 'starch')),
+                            calls.index(('mkinitcpio', '-P')))
+            hooks = (root / 'etc/mkinitcpio.conf.d/10-starch.conf').read_text().split()
+            self.assertLess(hooks.index('systemd'), hooks.index('plymouth'))
+            self.assertLess(hooks.index('kms'), hooks.index('plymouth'))
+            disk = {'blockdevices': [{'children': [{'partn': 1,
+                    'parttype': '21686148-6449-6e6f-744e-656564454649'}]}]}
+            with patch.object(limine, 'target', return_value=root), \
+                 patch.object(limine, 'selected_disk', return_value='/dev/vda'), \
+                 patch.object(limine, 'output', return_value=json.dumps(disk)), \
+                 patch.object(limine, 'chroot'):
+                limine.run(GS())
+            config = (root / 'boot/limine/limine.conf').read_text()
+            self.assertIn('cmdline: root=UUID=test-root rw rootfstype=ext4 quiet splash', config)
+            self.assertIn('module_path: uuid(test-root):/boot/initramfs-linux-lts.img', config)
+
     def test_pipeline_checks_before_partition_and_success(self):
         settings = yaml.safe_load((ROOT / 'calamares/settings.conf').read_text())
         jobs = settings['sequence'][1]['exec']
@@ -299,6 +348,11 @@ class InstallerSafety(unittest.TestCase):
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
             self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())
+            theme = overlay / 'usr/share/plymouth/themes/starch'
+            self.assertEqual((theme / 'logo.png').read_bytes(),
+                             (ROOT / 'calamares/branding/starch/starchlinux.png').read_bytes())
+            self.assertTrue((theme / 'starch.plymouth').is_file())
+            self.assertTrue((theme / 'starch.script').is_file())
 
     def test_linux_update_utility_is_staged_for_live_and_installed_systems(self):
         spec = importlib.util.spec_from_file_location('stage_luu', ROOT / 'scripts/build/stage-installer.py')

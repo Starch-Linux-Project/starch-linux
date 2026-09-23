@@ -13,7 +13,8 @@ def run(gs):
     put(root, 'etc/issue.net', 'Starch Linux\n')
     put(root, 'etc/sddm.conf.d/10-starch.conf', '[General]\nDisplayServer=wayland\n\n[Wayland]\nCompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1\n\n[X11]\nSessionDir=/usr/share/starch/no-x11-sessions\n\n[Theme]\nCurrent=breeze\n')
     put(root, 'etc/systemd/zram-generator.conf', '[zram0]\nzram-size = min(ram / 2, 4096)\ncompression-algorithm = zstd\n')
-    put(root, 'etc/mkinitcpio.conf.d/10-starch.conf', 'HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block filesystems fsck)\n')
+    splash_hook = '' if gs.value('firmwareType') == 'efi' else ' plymouth'
+    put(root, 'etc/mkinitcpio.conf.d/10-starch.conf', f'HOOKS=(base systemd autodetect microcode modconf kms{splash_hook} keyboard sd-vconsole block filesystems fsck)\n')
     if gs.value('firmwareType') == 'efi':
         fstab = (root / 'etc/fstab').read_text()
         match = re.search(r'^UUID=(\S+)\s+/\s+ext4\s', fstab, re.M)
@@ -25,7 +26,10 @@ def run(gs):
             'ALL_kver="/boot/vmlinuz-linux-lts"\n'
             'PRESETS=(\'default\')\n'
             'default_uki="/boot/efi/EFI/Linux/starch-linux-lts.efi"\n'
-            'default_options="--splash /usr/share/systemd/bootctl/splash-arch.bmp"\n')
+            'default_options="--splash /usr/share/starch/splash-starch.bmp"\n')
+    else:
+        # Select the theme before mkinitcpio embeds it in the BIOS initramfs.
+        chroot(root, 'plymouth-set-default-theme', 'starch')
     chroot(root, 'usermod', '--shell', '/usr/bin/bash', 'root')
     chroot(root, 'passwd', '--lock', 'root')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')

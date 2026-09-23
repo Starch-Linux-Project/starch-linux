@@ -82,5 +82,5 @@ def run(gs):
         '/Starch Linux LTS\n    protocol: linux\n'
         f'    path: uuid({uuid}):/boot/vmlinuz-linux-lts\n'
         f'    module_path: uuid({uuid}):/boot/initramfs-linux-lts.img\n'
-        f'    cmdline: root=UUID={uuid} rw rootfstype=ext4\n')
+        f'    cmdline: root=UUID={uuid} rw rootfstype=ext4 quiet splash\n')
     chroot(root, 'limine', 'bios-install', disk, str(bios[0]['partn']))
