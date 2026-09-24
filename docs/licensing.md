@@ -12,7 +12,7 @@ CC0 1.0 Universal. The complete CC0 terms are in
 
 The Starch Linux name and branding are not granted under either software or
 artwork license. Modified distributions and forks must remove that identity and
-use another name. See [`TRADEMARKS.md`](../TRADEMARKS.md) for the project name
+use another name. See [`NOTICE.md`](../NOTICE.md) for the project name
 policy.
 
 Archiso 90 releng is vendored with notices in

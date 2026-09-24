@@ -6,9 +6,8 @@ installer integration, package manifests, build tooling, and validation tests
 used to produce a bootable live ISO and install a minimal desktop system.
 
 > [!WARNING]
-> Starch is under active development. Images produced from this repository are
-> development builds, not audited releases. Back up your data and test in a
-> virtual machine before considering installation on physical hardware.
+> Installation erases the selected disk. Back up your data and test in a
+> virtual machine before installing on physical hardware.
 
 ## Features
 
@@ -51,9 +50,7 @@ and Plasma desktop have completed an end-to-end UEFI VM test. Legacy BIOS
 installation remains supported and should continue to be covered by release
 testing.
 
-See [docs/release-checklist.md](docs/release-checklist.md) for the remaining
-release gates and [docs/decisions.md](docs/decisions.md) for the supported scope
-and non-goals.
+See [docs/decisions.md](docs/decisions.md) for the supported scope and non-goals.
 
 ## Requirements
 
@@ -131,7 +128,7 @@ before booting it.
 | `scripts/installer/` | Installation, target configuration, and validation jobs |
 | `scripts/validate/` | Generated-system validation tools |
 | `tests/` | Automated tests |
-| `docs/` | Architecture, decisions, testing, provenance, and release notes |
+| `docs/` | Supported scope, build integration, licensing, and provenance |
 | `build/` | Generated work trees, caches, and logs |
 | `starch-out/` | Generated ISO artifacts |
 
@@ -163,4 +160,4 @@ Third-party work remains under its respective licenses; provenance and notices
 are recorded in [docs/third-party/](docs/third-party/) and
 [docs/third-party-provenance.tsv](docs/third-party-provenance.tsv). Modified
 distributions must use a different name and branding; see
-[TRADEMARKS.md](TRADEMARKS.md) and [docs/licensing.md](docs/licensing.md).
+[NOTICE.md](NOTICE.md) and [docs/licensing.md](docs/licensing.md).

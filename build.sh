@@ -48,7 +48,7 @@ elif [[ ! -f ${luu_icons[0]} || -L ${luu_icons[0]} ]]; then
 fi
 available=$(df -Pk -- "$REPO_ROOT" | awk 'NR==2 {print $4}')
 if [[ ! $available =~ ^[0-9]+$ ]] || (( available < 20 * 1024 * 1024 )); then
-    echo 'Need at least 20 GiB available (provisional development threshold)' >&2; failed=1
+    echo 'Need at least 20 GiB available' >&2; failed=1
 fi
 (( failed == 0 )) || exit "$failed"
 [[ $1 != --check ]] || exit 0
