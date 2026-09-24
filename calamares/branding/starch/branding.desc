@@ -14,8 +14,8 @@ strings:
   versionedName: Starch Linux
   shortVersionedName: Starch Linux
   bootloaderEntryName: Starch
-  productUrl: https://starchlinux.org/
-  supportUrl: https://starchlinux.org/
+  productUrl: ""
+  supportUrl: ""
   knownIssuesUrl: ""
   releaseNotesUrl: ""
   donateUrl: ""

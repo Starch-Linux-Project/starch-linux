@@ -24,7 +24,7 @@ class InstallerSafety(unittest.TestCase):
         branding = yaml.safe_load((ROOT / 'calamares/branding/starch/branding.desc').read_text())
         self.assertFalse(branding['welcomeStyleCalamares'])
         self.assertNotIn('test installer', branding['strings']['versionedName'].lower())
-        self.assertTrue(branding['strings']['productUrl'].startswith('https://'))
+        self.assertEqual(branding['strings']['productUrl'], '')
         self.assertEqual(branding['strings']['supportUrl'], branding['strings']['productUrl'])
         logo = ROOT / 'calamares/branding/starch/starchlinux.png'
         self.assertEqual(branding['images']['productBanner'], logo.name)
@@ -35,7 +35,8 @@ class InstallerSafety(unittest.TestCase):
 
         for name in ('welcome.html', 'slideshow.html'):
             content = (ROOT / 'calamares/branding/starch' / name).read_text()
-            self.assertIn('@PRODUCT_URL@', content)
+            self.assertNotIn('@PRODUCT_URL@', content)
+            self.assertNotIn('href=', content)
             self.assertIn('news', content.lower())
 
         partition = yaml.safe_load((ROOT / 'calamares/modules/partition.conf').read_text())
