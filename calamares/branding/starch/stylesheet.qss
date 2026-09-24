@@ -7,9 +7,3 @@
     color: #eff0f1;
     padding: 16px;
 }
-
-#supportButton,
-#releaseNotesButton {
-    color: #1793d1;
-    font-weight: 600;
-}
