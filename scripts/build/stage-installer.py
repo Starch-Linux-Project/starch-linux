@@ -36,6 +36,8 @@ def stage_wallpapers(fs, input_dir=None):
         slug = re.sub(r'[^a-z0-9]+', '-', source.stem.lower()).strip('-') or 'wallpaper'
         digest = hashlib.sha256(relative.encode()).hexdigest()[:8]
         package_name = f'Starch-{slug}-{digest}'
+        if relative == 'wyxina-tree-8559118.jpg':
+            package_name = 'Starch-Evergreen'
         plugin_id = f'org.starch.wallpaper.{slug}.{digest}'
         display_name = re.sub(r'[_-]+', ' ', source.stem).strip().title() or 'Starch Wallpaper'
         metadata = {
@@ -105,6 +107,8 @@ def stage(profile, luu_input=None, wallpaper_input=None):
     overlay = data / 'target-overlay'
     # Explicit allowlist: none of the live user, sudo or network state is copied.
     for relative in ('etc/skel/.config/kdeglobals', 'etc/skel/.config/baloofilerc',
+                     'etc/xdg/kscreenlockerrc',
+                     'usr/share/sddm/themes/breeze/theme.conf.user',
                      'etc/xdg/konsolerc',
                      'etc/nftables.conf',
                      'etc/fastfetch/config.jsonc', 'usr/share/starch/fastfetch-text',
