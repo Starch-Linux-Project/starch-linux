@@ -4,6 +4,8 @@
 var desktopsArray = desktopsForActivity(currentActivity());
 for (var j = 0; j < desktopsArray.length; j++) {
     desktopsArray[j].wallpaperPlugin = "org.kde.image";
+    desktopsArray[j].currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+    desktopsArray[j].writeConfig("Image", "file:///usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg");
 }
 
 var panel = new Panel;
