@@ -26,6 +26,11 @@ settings.read(home / ".config/kdeglobals")
 assert settings["KDE"]["LookAndFeelPackage"] == "org.starch.desktop", "Starch Plasma theme is not selected"
 assert settings["General"]["ColorScheme"] == "BreezeDark", "Breeze Dark is not selected"
 kwinrc = configparser.ConfigParser()
+lock_config = configparser.ConfigParser()
+lock_config.read(home / ".config/kscreenlockerrc")
+assert not lock_config.getboolean("Daemon", "Autolock"), "Live automatic screen locking is enabled"
+assert lock_config.getfloat("Daemon", "Timeout") == 0, "Live screen-lock settings must show Never"
+assert not lock_config.getboolean("Daemon", "LockOnResume"), "Live lock on resume is enabled"
 kwinrc.read(home / ".config/kwinrc")
 assert kwinrc["Wayland"]["InputMethod[$e]"] == "/usr/share/applications/org.kde.plasma.keyboard.desktop", "Plasma Keyboard is not configured for the live session"
 sddm = configparser.ConfigParser()
