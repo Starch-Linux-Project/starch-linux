@@ -1,5 +1,5 @@
 NAME="Starch Linux"
-PRETTY_NAME="Starch Linux Live"
+PRETTY_NAME="Starch Linux 1.1 Live"
 ID=starch
 ID_LIKE=arch
 VERSION="Live"

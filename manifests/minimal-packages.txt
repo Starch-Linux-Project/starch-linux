@@ -14,6 +14,8 @@ fuse2
 networkmanager
 plasma-desktop
 plasma-workspace
+plasma-keyboard
+qt6-virtualkeyboard
 sddm
 breeze
 mesa

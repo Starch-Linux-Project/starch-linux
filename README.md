@@ -19,6 +19,8 @@ used to produce a bootable live ISO and install a minimal desktop system.
 - PipeWire and WirePlumber audio
 - Fish, Konsole, Firefox, Nautilus, Fastfetch, and zram
 - Linux Update Utility in the live environment and installed system
+- KDE Plasma Keyboard available for touch and keyboard-less use without an
+  always-visible on-screen keyboard
 - A reproducible build layout with source snapshots, checksums, and validation
   reports
 
@@ -51,6 +53,8 @@ installation remains supported and should continue to be covered by release
 testing.
 
 See [docs/decisions.md](docs/decisions.md) for the supported scope and non-goals.
+See [docs/virtual-keyboard.md](docs/virtual-keyboard.md) for the KWin/SDDM
+integration and release hardware test matrix.
 
 ## Requirements
 

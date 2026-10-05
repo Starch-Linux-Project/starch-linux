@@ -84,6 +84,7 @@ class InstallerSafety(unittest.TestCase):
             self.assertEqual(installed['General']['DisplayServer'], 'wayland')
             self.assertEqual(installed['Wayland']['CompositorCommand'], live['Wayland']['CompositorCommand'])
             self.assertEqual(installed['Wayland']['CompositorCommand'].split()[0], 'kwin_wayland')
+            self.assertIn('--inputmethod plasma-keyboard', installed['Wayland']['CompositorCommand'])
             self.assertEqual(installed['Theme']['Current'], 'breeze')
             self.assertNotIn('Autologin', installed)
             installed.read(root / 'etc/sddm.conf')
@@ -268,6 +269,8 @@ class InstallerSafety(unittest.TestCase):
         self.assertIn('linux-lts', packages)
         self.assertIn('limine', packages)
         self.assertIn('fuse2', packages)
+        self.assertIn('plasma-keyboard', packages)
+        self.assertIn('qt6-virtualkeyboard', packages)
         self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif', 'nftables'}.issubset(packages))
         self.assertNotIn('grub', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
@@ -349,6 +352,8 @@ class InstallerSafety(unittest.TestCase):
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
             self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())
+            self.assertEqual((overlay / 'etc/skel/.config/kwinrc').read_text(),
+                             (ROOT / 'archiso/profile/airootfs/etc/skel/.config/kwinrc').read_text())
             theme = overlay / 'usr/share/plymouth/themes/starch'
             self.assertEqual((theme / 'logo.png').read_bytes(),
                              (ROOT / 'calamares/branding/starch/starchlinux.png').read_bytes())

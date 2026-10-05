@@ -39,8 +39,12 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
-    if not (home / '.config/kdeglobals').is_file():
-        raise RuntimeError('Desktop defaults were not applied to the installed user.')
+    if not (home / '.config/kdeglobals').is_file() or not (home / '.config/kwinrc').is_file():
+        raise RuntimeError('Desktop or virtual-keyboard defaults were not applied to the installed user.')
+    kwinrc = configparser.ConfigParser(interpolation=None)
+    kwinrc.read(home / '.config/kwinrc')
+    if kwinrc.get('Wayland', 'InputMethod[$e]', fallback=None) != '/usr/share/applications/org.kde.plasma.keyboard.desktop':
+        raise RuntimeError('Installed user has no Plasma Keyboard input-method default.')
     shadow = {p[0]: p[1] for p in (line.split(':') for line in (root / 'etc/shadow').read_text().splitlines())}
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
         raise RuntimeError('Installed account password state is incorrect.')
@@ -64,7 +68,10 @@ def run(gs):
     # SDDM's default Wayland compositor is Weston, which we do not install.
     # Check KWin inside the target so a missing executable stops installation.
     chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
-    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'limine', 'fish', 'sddm', 'networkmanager')
+    chroot(root, 'test', '-x', '/usr/bin/plasma-keyboard')
+    chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
+    chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
+    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'limine', 'fish', 'sddm', 'networkmanager', 'plasma-keyboard', 'qt6-virtualkeyboard')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')

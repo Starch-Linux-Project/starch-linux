@@ -1,0 +1,5 @@
+[Wayland]
+# Keep the KDE-native virtual keyboard available in every Plasma Wayland
+# session. KWin/Plasma decide when its panel is shown, including tablet and
+# touch focus behavior; this is intentionally not KWIN_IM_SHOW_ALWAYS.
+InputMethod[$e]=/usr/share/applications/org.kde.plasma.keyboard.desktop

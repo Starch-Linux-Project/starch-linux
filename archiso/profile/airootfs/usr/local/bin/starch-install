@@ -2,11 +2,31 @@
 set -euo pipefail
 [[ -f /etc/starch-live ]]
 if [[ $(id -u) != 0 ]]; then
+    if ! keyboard_mode=$(kdialog --title "Install Starch Linux" --radiolist \
+        "Choose how you want to type in the installer:" \
+        standard "Standard keyboard" on \
+        virtual "On-screen keyboard (touch devices)" off); then
+        exit 0
+    fi
+    case $keyboard_mode in
+        standard) keyboard_option=--standard-keyboard ;;
+        virtual) keyboard_option=--on-screen-keyboard ;;
+        *) echo "Unexpected installer keyboard selection: $keyboard_mode" >&2; exit 1 ;;
+    esac
     # Qt rejects a Wayland runtime directory owned by the live user after sudo
     # changes the effective UID to root. Use Plasma's XWayland display for the
     # privileged installer and carry its authentication into the root process.
-    exec sudo --preserve-env=DISPLAY,XAUTHORITY /usr/local/bin/starch-install
+    exec sudo --preserve-env=DISPLAY,XAUTHORITY /usr/local/bin/starch-install "$keyboard_option"
 fi
+if (( $# != 1 )); then
+    echo 'The installer must be started from the live desktop.' >&2
+    exit 2
+fi
+case $1 in
+    --standard-keyboard) unset QT_IM_MODULE ;;
+    --on-screen-keyboard) export QT_IM_MODULE=qtvirtualkeyboard ;;
+    *) echo 'The installer must be started from the live desktop.' >&2; exit 2 ;;
+esac
 umask 077
 export QT_QPA_PLATFORM=xcb
 export XDG_CONFIG_HOME=/root/.config
