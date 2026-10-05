@@ -347,8 +347,13 @@ class InstallerSafety(unittest.TestCase):
             stage.stage(profile)
             overlay = profile / 'airootfs/usr/share/starch-installer/target-overlay'
             for path in ('etc/passwd', 'etc/shadow', 'etc/sudoers.d/10-starch-live', 'etc/starch-live',
-                         'etc/systemd/system', 'etc/NetworkManager', 'home/liveuser'):
+                         'etc/systemd/system', 'etc/NetworkManager', 'home/liveuser',
+                         'etc/systemd/sleep.conf.d', 'etc/skel/.config/kscreenlockerrc',
+                         'etc/skel/.config/powerdevilrc'):
                 self.assertFalse((overlay / path).exists(), path)
+            lock_config = configparser.ConfigParser()
+            lock_config.read(overlay / 'etc/xdg/kscreenlockerrc')
+            self.assertNotIn('Daemon', lock_config)
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
             self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())

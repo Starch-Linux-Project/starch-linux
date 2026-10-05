@@ -7,7 +7,7 @@ if ! id liveuser &>/dev/null; then
     useradd --create-home --user-group --groups wheel --shell /usr/bin/fish --comment 'Starch Live' liveuser
 fi
 usermod --shell /usr/bin/fish liveuser
-printf '%s\n' 'liveuser:root' | chpasswd
+printf '%s\n' 'liveuser:password' | chpasswd
 usermod --shell /usr/bin/bash root
 [[ -d /home/liveuser ]]
 install -D -m 0755 -o liveuser -g liveuser /usr/share/applications/starch-install.desktop /home/liveuser/Desktop/starch-install.desktop

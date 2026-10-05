@@ -46,9 +46,17 @@ class LiveProfile(unittest.TestCase):
         script = hook["Action"]["Exec"].split()[-1]
         setup_script = FS / script.lstrip("/")
         self.assertTrue(setup_script.is_file())
-        self.assertIn("'liveuser:root' | chpasswd", setup_script.read_text())
+        self.assertIn("'liveuser:password' | chpasswd", setup_script.read_text())
         self.assertFalse((units / "getty@tty1.service.d/autologin.conf").exists())
         self.assertIn("root:/root:/usr/bin/bash", (FS / "etc/passwd").read_text())
+
+    def test_live_screen_lock_is_disabled_and_shown_as_never(self):
+        cfg = configparser.ConfigParser()
+        cfg.read(FS / "etc/skel/.config/kscreenlockerrc")
+        self.assertFalse(cfg.getboolean("Daemon", "Autolock"))
+        self.assertEqual(cfg.getfloat("Daemon", "Timeout"), 0)
+        self.assertFalse(cfg.getboolean("Daemon", "LockOnResume"))
+        self.assertFalse(cfg.getboolean("Daemon", "LockOnStart"))
 
     def test_network_manager_has_no_competing_enabled_backend(self):
         units = FS / "etc/systemd/system"
