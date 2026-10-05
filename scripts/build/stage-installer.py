@@ -107,6 +107,7 @@ def stage(profile, luu_input=None, wallpaper_input=None):
     overlay = data / 'target-overlay'
     # Explicit allowlist: none of the live user, sudo or network state is copied.
     for relative in ('etc/skel/.config/kdeglobals', 'etc/skel/.config/baloofilerc',
+                     'etc/skel/.config/kwinrc',
                      'etc/xdg/kscreenlockerrc',
                      'usr/share/sddm/themes/breeze/theme.conf.user',
                      'etc/xdg/konsolerc',

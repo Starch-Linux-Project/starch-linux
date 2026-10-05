@@ -14,6 +14,9 @@ This document describes the Starch Linux platform and installation model.
 - Installed users choose their username, display name and password in Calamares.
 - Fish is the default interactive and login shell for the live user and installed users.
 - Bash remains installed. Root retains Bash for conventional recovery, and all system/build scripts use an explicit Bash shebang.
+- Virtual keyboard: `plasma-keyboard` is installed and configured as KWin's
+  Wayland input method for Plasma and SDDM. Its panel remains governed by
+  KWin/Plasma touch and input-context behavior; Starch does not force it open.
 
 ## Kernel, boot and storage
 

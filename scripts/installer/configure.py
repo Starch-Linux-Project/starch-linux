@@ -8,10 +8,10 @@ def run(gs):
     # This file has higher precedence than sddm.conf.d and Calamares writes it.
     # Autologin is reserved for the disposable live environment.
     put(root, 'etc/sddm.conf', '[Autologin]\nUser=\nSession=\nRelogin=false\n')
-    put(root, 'etc/os-release', 'NAME="Starch Linux"\nPRETTY_NAME="Starch Linux"\nID=starch\nID_LIKE=arch\nBUILD_ID=rolling\nANSI_COLOR="38;2;23;147;209"\n')
+    put(root, 'etc/os-release', 'NAME="Starch Linux"\nPRETTY_NAME="Starch Linux 1.1"\nID=starch\nID_LIKE=arch\nBUILD_ID=rolling\nANSI_COLOR="38;2;23;147;209"\n')
     put(root, 'etc/issue', 'Starch Linux \\r (\\l)\n\n')
     put(root, 'etc/issue.net', 'Starch Linux\n')
-    put(root, 'etc/sddm.conf.d/10-starch.conf', '[General]\nDisplayServer=wayland\n\n[Wayland]\nCompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1\n\n[X11]\nSessionDir=/usr/share/starch/no-x11-sessions\n\n[Theme]\nCurrent=breeze\n')
+    put(root, 'etc/sddm.conf.d/10-starch.conf', '[General]\nDisplayServer=wayland\n\n[Wayland]\n# Plasma Keyboard is KWin\'s input method. KWin keeps its panel dormant until input context calls for it.\nCompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1 --inputmethod plasma-keyboard\n\n[X11]\nSessionDir=/usr/share/starch/no-x11-sessions\n\n[Theme]\nCurrent=breeze\n')
     put(root, 'etc/systemd/zram-generator.conf', '[zram0]\nzram-size = min(ram / 2, 4096)\ncompression-algorithm = zstd\n')
     splash_hook = '' if gs.value('firmwareType') == 'efi' else ' plymouth'
     put(root, 'etc/mkinitcpio.conf.d/10-starch.conf', f'HOOKS=(base systemd autodetect microcode modconf kms{splash_hook} keyboard sd-vconsole block filesystems fsck)\n')

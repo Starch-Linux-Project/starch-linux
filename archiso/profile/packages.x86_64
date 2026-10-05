@@ -138,9 +138,12 @@ gnome-calculator
 gnome-disk-utility
 plasma-desktop
 plasma-workspace
+plasma-keyboard
+qt6-virtualkeyboard
 sddm
 breeze
 konsole
+kdialog
 fish
 fuse2
 mesa

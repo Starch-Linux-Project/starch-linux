@@ -14,7 +14,7 @@ class LiveProfile(unittest.TestCase):
         self.assertIn('iso_label="STARCH_', profiledef)
         os_release = (FS / "etc/os-release").read_text()
         self.assertIn('NAME="Starch Linux"', os_release)
-        self.assertIn('PRETTY_NAME="Starch Linux Live"', os_release)
+        self.assertIn('PRETTY_NAME="Starch Linux 1.1 Live"', os_release)
         self.assertIn('ID=starch', os_release)
         self.assertEqual((FS / "etc/hostname").read_text().strip(), "starch-live")
         self.assertTrue((FS / "etc/issue").read_text().startswith("Starch Linux Live"))
@@ -65,9 +65,11 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "networkmanager", "konsole", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "plasma-keyboard", "qt6-virtualkeyboard", "networkmanager", "konsole", "kdialog", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
+        self.assertEqual((FS / "etc/skel/.config/kwinrc").read_text().strip(), "[Wayland]\n# Keep the KDE-native virtual keyboard available in every Plasma Wayland\n# session. KWin/Plasma decide when its panel is shown, including tablet and\n# touch focus behavior; this is intentionally not KWIN_IM_SHOW_ALWAYS.\nInputMethod[$e]=/usr/share/applications/org.kde.plasma.keyboard.desktop")
+        self.assertIn("--inputmethod plasma-keyboard", (FS / "etc/sddm.conf.d/10-starch-live.conf").read_text())
 
     def test_nftables_workstation_firewall(self):
         rules = (FS / "etc/nftables.conf").read_text()
@@ -84,6 +86,12 @@ class LiveProfile(unittest.TestCase):
         launcher = (FS / "usr/local/bin/starch-install").read_text()
         self.assertIn("--preserve-env=DISPLAY,XAUTHORITY", launcher)
         self.assertIn("export QT_QPA_PLATFORM=xcb", launcher)
+        self.assertIn("kdialog --title", launcher)
+        self.assertIn('standard "Standard keyboard" on', launcher)
+        self.assertIn("--standard-keyboard", launcher)
+        self.assertIn("unset QT_IM_MODULE", launcher)
+        self.assertIn("--on-screen-keyboard", launcher)
+        self.assertIn("export QT_IM_MODULE=qtvirtualkeyboard", launcher)
         self.assertNotIn("--preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR", launcher)
 
     def test_linux_update_utility_archiso_permissions(self):
