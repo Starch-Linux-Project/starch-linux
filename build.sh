@@ -102,7 +102,10 @@ import pathlib, sys
 p = pathlib.Path(sys.argv[1])
 p.write_text(p.read_text().replace('[options]\n', '[options]\nCacheDir = ' + sys.argv[2] + '\n', 1))
 CONFIG
-pacman -Q archiso >"$output/build-report.txt"
+if ! pacman -Q archiso >"$output/build-report.txt"; then
+    printf 'archiso package version unavailable (host pacman query failed)\n' >"$output/build-report.txt"
+    sha256sum -- "$(command -v mkarchiso)" >>"$output/build-report.txt"
+fi
 cat "$run_dir/installer-repo/package-version.txt" >>"$output/build-report.txt"
 cp -- "$REPO_ROOT/manifests/minimal-packages.txt" "$output/target-requested-packages.txt"
 cp -a -- "$run_dir/installer-repo/sources" "$output/calamares-sources"

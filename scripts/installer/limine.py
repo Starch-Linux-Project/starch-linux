@@ -68,7 +68,7 @@ def run(gs):
                '--label', 'Starch Linux', '--loader', r'\EFI\Limine\BOOTX64.EFI')
         return
 
-    tree = json.loads(output(['lsblk', '--json', '-o', 'PATH,PARTN,PARTTYPE', '--', disk]))
+    tree = json.loads(output(['lsblk', '--json', '--tree', '-o', 'PATH,PARTN,PARTTYPE', '--', disk]))
     bios_guid = '21686148-6449-6e6f-744e-656564454649'
     partitions = (tree.get('blockdevices') or [{}])[0].get('children') or []
     bios = [p for p in partitions if str(p.get('parttype', '')).lower() == bios_guid]
@@ -80,7 +80,7 @@ def run(gs):
     (loader / 'limine.conf').write_text(
         'timeout: 5\ndefault_entry: 1\ninterface_branding: Starch Linux\n\n'
         '/Starch Linux LTS\n    protocol: linux\n'
-        f'    path: uuid({uuid}):/boot/vmlinuz-linux-lts\n'
-        f'    module_path: uuid({uuid}):/boot/initramfs-linux-lts.img\n'
+        '    path: boot():/vmlinuz-linux-lts\n'
+        '    module_path: boot():/initramfs-linux-lts.img\n'
         f'    cmdline: root=UUID={uuid} rw rootfstype=ext4 quiet splash\n')
     chroot(root, 'limine', 'bios-install', disk, str(bios[0]['partn']))

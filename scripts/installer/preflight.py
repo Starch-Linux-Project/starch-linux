@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import tempfile
+from graphics import select_packages
 from runtime import DATA, STATE, check_disk_tree, command, deactivate_disk, microcode, output, read_manifest, selected_disk
 
 
@@ -9,11 +10,11 @@ def run(gs):
         raise RuntimeError('Only erase-disk installation without disk swap is supported.')
     disk = selected_disk(gs)
     command(['udevadm', 'settle'], timeout=30)
-    tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
+    tree = json.loads(output(['lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
                               'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
     deactivate_disk(tree, disk)
     command(['udevadm', 'settle'], timeout=30)
-    tree = json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
+    tree = json.loads(output(['lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
                               'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk]))
     check_disk_tree(tree, disk)
     STATE.mkdir(mode=0o700, exist_ok=True)
@@ -29,9 +30,10 @@ def run(gs):
     args = ['pacman', '--config', DATA / 'pacman.conf', '--dbpath', db,
             '--logfile', STATE / 'pacman-preflight.log']
     command([*args, '-Sy', '--noconfirm'], timeout=300)
+    packages = list(dict.fromkeys(packages + select_packages(args, STATE)))
     command([*args, '-Sp', '--print-format', '%n %v', '--', *packages], timeout=120)
     # Recheck after network operations, immediately before partition jobs run.
-    check_disk_tree(json.loads(output(['lsblk', '--json', '--bytes', '--paths', '--output',
+    check_disk_tree(json.loads(output(['lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
                                      'PATH,TYPE,SIZE,RO,MOUNTPOINTS', '--', disk])), disk)
     # Record only the resolved selection; no credentials or full global storage.
     (STATE / 'selection.json').write_text(json.dumps({'disk': disk, 'packages': packages}))

@@ -7,7 +7,7 @@ whole disk in erase mode, and publish that canonical disk path early for the
 Starch preflight module.
 
 On BIOS systems using the required GPT partition table, add the unformatted
-8 MiB BIOS Boot partition GRUB needs. The partitioning portion is adapted
+8 MiB BIOS Boot partition Limine needs and a 1 GiB FAT32 /boot partition. The partitioning portion is adapted
 from upstream commit 4e09e1ff0065c268a286da95c0425f6df26ee668, but keeps
 the layout platform-specific rather than creating a hybrid layout.
 
@@ -15,24 +15,24 @@ Upstream-Status: Inappropriate [Starch-specific installer policy]
 Origin: https://github.com/calamares/calamares/commit/4e09e1ff0065c268a286da95c0425f6df26ee668
 License: GPL-3.0-or-later
 ---
- src/modules/partition/core/PartitionActions.cpp    | 20 +++++++
+ src/modules/partition/core/PartitionActions.cpp    | 35 +++++++++++
  src/modules/partition/core/PartitionCoreModule.cpp | 69 +++++++++++++++++++++-
  src/modules/partition/gui/ChoicePage.cpp           | 26 +++++++-
- 3 files changed, 110 insertions(+), 5 deletions(-)
+ 3 files changed, 125 insertions(+), 5 deletions(-)
 
 diff --git a/src/modules/partition/core/PartitionActions.cpp b/src/modules/partition/core/PartitionActions.cpp
 index ddfabaf..21c6ebe 100644
 --- a/src/modules/partition/core/PartitionActions.cpp
 +++ b/src/modules/partition/core/PartitionActions.cpp
-@@ -145,6 +145,26 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
+@@ -145,6 +145,41 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
          core->createPartition( dev, efiPartition, KPM_PARTITION_FLAG_ESP );
          firstFreeSector = lastSector + 1;
      }
 +    else if ( partType == PartitionTable::gpt )
 +    {
-+        // GRUB's i386-pc target needs embedded core-image space on GPT.
-+        // Keep this platform-specific: UEFI uses the ESP above, while a
-+        // legacy-BIOS boot gets only this small, unformatted partition.
++        // Limine embeds its BIOS stages in this unformatted GPT partition.
++        // Its configuration, kernel and initramfs need a separate FAT32 /boot;
++        // Limine cannot read the ext4 root filesystem.
 +        qint64 biosSectorCount = Calamares::bytesToSectors( 8_MiB, dev->logicalSize() );
 +        Q_ASSERT( biosSectorCount > 0 );
 +
@@ -46,6 +46,21 @@ index ddfabaf..21c6ebe 100644
 +                                                                   lastSector,
 +                                                                   KPM_PARTITION_FLAG( None ) );
 +        core->createPartition( dev, biosPartition, KPM_PARTITION_FLAG( BiosGrub ) );
++        firstFreeSector = lastSector + 1;
++
++        qint64 bootSectorCount = Calamares::bytesToSectors( 1024_MiB, dev->logicalSize() );
++        lastSector = firstFreeSector + bootSectorCount - 1;
++        Partition* bootPartition = KPMHelpers::createNewPartition( dev->partitionTable(),
++                                                                   *dev,
++                                                                   PartitionRole( PartitionRole::Primary ),
++                                                                   FileSystem::Fat32,
++                                                                   QString(),
++                                                                   firstFreeSector,
++                                                                   lastSector,
++                                                                   KPM_PARTITION_FLAG( None ) );
++        PartitionInfo::setFormat( bootPartition, true );
++        PartitionInfo::setMountPoint( bootPartition, QStringLiteral( "/boot" ) );
++        core->createPartition( dev, bootPartition, KPM_PARTITION_FLAG( None ) );
 +        firstFreeSector = lastSector + 1;
 +    }
  

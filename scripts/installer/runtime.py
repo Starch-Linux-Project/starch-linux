@@ -139,6 +139,26 @@ def deactivate_disk(tree, selected):
             visit(child, depth + 1)
     visit(disk)
 
+    # lsblk's forward tree repeats RAID/LVM holders beneath every backing
+    # device. Inspect each consumer's inverse tree before changing anything;
+    # the selected disk's forward tree alone omits the other backing disks.
+    for _, node in nodes:
+        if node.get('type') in ('disk', 'part'):
+            continue
+        backing = json.loads(output(['lsblk', '--json', '--tree', '--inverse', '--paths',
+                                     '--output', 'PATH,TYPE', '--', node['path']]))
+        disks = set()
+        def collect_backing(item):
+            if item.get('type') == 'disk':
+                disks.add(item.get('path'))
+            for child in item.get('children') or []:
+                collect_backing(child)
+        for item in backing.get('blockdevices') or []:
+            collect_backing(item)
+        if disks != {selected}:
+            raise RuntimeError('The selected disk has shared or unidentified backing storage. '
+                               'Deactivate it manually before installation.')
+
     mountpoints = []
     for _, node in nodes:
         for mountpoint in node.get('mountpoints') or []:
@@ -216,6 +236,15 @@ def target(gs):
         boot = gs.value('bootLoader') or {}
         if boot.get('installPath') != disk:
             raise RuntimeError('The bootloader must install to the selected disk.')
+        boots = [p for p in partitions if p.get('mountPoint') == '/boot']
+        if len(boots) != 1 or boots[0].get('fs') != 'fat32':
+            raise RuntimeError('Expected one FAT32 BIOS /boot partition.')
+        boot_device = boots[0]['device']
+        parents = output(['lsblk', '-s', '-n', '-p', '-o', 'PATH', '--', boot_device]).splitlines()
+        if disk not in parents or not (root / 'boot').is_mount():
+            raise RuntimeError('BIOS /boot is not mounted on the selected disk.')
+        if output(['findmnt', '-n', '-o', 'MAJ:MIN', '--mountpoint', root / 'boot']) != output(['lsblk', '-d', '-n', '-o', 'MAJ:MIN', '--', boot_device]):
+            raise RuntimeError('Mounted BIOS /boot differs from the selected partition.')
     return root
 
 

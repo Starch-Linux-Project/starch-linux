@@ -124,8 +124,12 @@ cp -a "$REPO_ROOT/docs/third-party/calamares-3.3.14/." "$OUTPUT_DIR/notices/"
 
 printf '%s\n' "$source_url" > "$OUTPUT_DIR/sources/SOURCE_URL"
 printf '%s\n' "$input_hash" > "$OUTPUT_DIR/INPUT_SHA256"
-pacman -Qp "$OUTPUT_DIR/$package_file" > "$OUTPUT_DIR/package-version.txt"
-pacman -Qip "$OUTPUT_DIR/$package_file" > "$OUTPUT_DIR/package-info.txt"
+# Archive queries still initialize libalpm. They need no host database, which
+# may be unreadable during rootless builds.
+query_db=$(mktemp -d "$BUILD_ROOT/query-db-XXXXXXXX")
+trap 'rm -rf -- "$query_db"' EXIT
+pacman --config /dev/null --dbpath "$query_db" -Qp "$OUTPUT_DIR/$package_file" > "$OUTPUT_DIR/package-version.txt"
+pacman --config /dev/null --dbpath "$query_db" -Qip "$OUTPUT_DIR/$package_file" > "$OUTPUT_DIR/package-info.txt"
 (
     cd "$OUTPUT_DIR"
     # SHA256SUMS is explicitly excluded from the input set.

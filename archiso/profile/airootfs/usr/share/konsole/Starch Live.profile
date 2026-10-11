@@ -1,7 +1,6 @@
 [General]
 Name=Starch Live
 Parent=FALLBACK/
-Command=/usr/bin/fish
 
 [Appearance]
 ColorScheme=Breeze
