@@ -44,7 +44,7 @@ Automatic layouts:
 | Firmware mode | Partition table and partitions |
 | --- | --- |
 | UEFI | GPT; 512 MiB FAT32 EFI System Partition mounted at `/boot/efi`; remaining usable space as ext4 `/` |
-| Legacy BIOS | GPT; small unformatted BIOS boot partition for Limine; remaining usable space as ext4 `/` |
+| Legacy BIOS | GPT; 8 MiB unformatted BIOS boot partition for Limine; 1 GiB FAT32 `/boot`; remaining usable space as ext4 `/` |
 
 The installed boot design is independent of the boot mechanisms Archiso uses
 for the live ISO. The target package manifest, installer sequence and target
@@ -92,7 +92,19 @@ Calamares must show a conspicuous final warning that every partition on the sele
 - A supported NVIDIA GPU receives the current official Arch packages appropriate for `linux-lts`, including NVIDIA userspace components.
 - A hybrid Intel/AMD plus NVIDIA laptop receives PRIME render-offload support.
 - NVIDIA devices unsupported by Arch’s current main NVIDIA driver fall back to Nouveau when viable; they are outside the guaranteed daily-driver matrix.
-- Driver package names and compatibility must come from release-time Arch metadata or a small reviewed mapping, never from hard-coded package versions.
+- The installer reads display-controller PCI modaliases and adds GPU packages
+  to the online pacstrap transaction. Intel receives Vulkan and VA-API drivers;
+  AMD receives Vulkan (its VA-API driver is already included in Mesa).
+- NVIDIA compatibility comes from the supported-device table in the current
+  signed Arch `nvidia-open-dkms` package, downloaded during preflight only to
+  read metadata. That source package is not installed. Compatible machines
+  receive `nvidia-open-lts` and `nvidia-utils`, plus `nvidia-prime` on hybrid
+  Intel/AMD systems. Package versions are resolved from Arch at installation.
+- Unknown/older NVIDIA devices, including mixed supported/unsupported NVIDIA
+  configurations, retain Nouveau and receive `vulkan-nouveau` (where the GPU
+  supports it). This avoids globally blacklisting Nouveau on machines needing
+  it. Missing or inconsistent compatibility metadata stops preflight.
+- No additional GPU driver packages are added to the live ISO.
 - CPU vendor detection installs `amd-ucode` or `intel-ucode` as appropriate.
 - Include broad Arch firmware coverage and document any non-redistributable firmware exclusions.
 

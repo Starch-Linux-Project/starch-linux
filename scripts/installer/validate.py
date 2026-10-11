@@ -1,6 +1,6 @@
 import configparser
 import re
-from runtime import chroot, output, preserve_logs, target
+from runtime import chroot, output, preserve_logs, read_manifest, target
 
 
 def validate_machine_id(root):
@@ -80,7 +80,7 @@ def run(gs):
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
-    for service in ('sddm.service', 'NetworkManager.service', 'nftables.service'):
+    for service in ('sddm.service', 'NetworkManager.service', 'nftables.service', 'bluetooth.service'):
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):
@@ -97,11 +97,21 @@ def run(gs):
         if 'protocol: efi' not in limine or 'EFI/Linux/starch-linux-lts.efi' not in limine:
             raise RuntimeError('Limine has no Starch UKI entry.')
     else:
+        if not re.search(r'^UUID=\S+\s+/boot\s+vfat\s', fstab, re.M):
+            raise RuntimeError('FAT32 BIOS /boot mount is missing from fstab.')
         for name in ('boot/initramfs-linux-lts.img', 'boot/limine/limine-bios.sys',
                      'boot/limine/limine.conf'):
             if not (root / name).is_file() or not (root / name).stat().st_size:
                 raise RuntimeError(f'Missing Limine BIOS file: {name}')
+        config = (root / 'boot/limine/limine.conf').read_text()
+        if ('path: boot():/vmlinuz-linux-lts' not in config or
+                'module_path: boot():/initramfs-linux-lts.img' not in config):
+            raise RuntimeError('Limine BIOS must load the kernel and initramfs from FAT32 /boot.')
     versions = output(['arch-chroot', root, 'pacman', '-Q'])
+    requested = read_manifest(root / 'var/log/starch-installer/requested-packages.txt')
+    missing = set(requested) - {line.split()[0] for line in versions.splitlines()}
+    if missing:
+        raise RuntimeError('Requested target packages are missing: ' + ', '.join(sorted(missing)))
     if any(line.split()[0] in {'calamares', 'grub', 'mkinitcpio-archiso', 'archinstall', 'linux',
                                'plasma-x11-session'} for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')

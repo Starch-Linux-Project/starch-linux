@@ -130,7 +130,10 @@ class InstallerSafety(unittest.TestCase):
             }]
         }]}
         calls = []
-        with patch.object(runtime, 'command', side_effect=lambda argv, timeout=0: calls.append(argv)):
+        backing = {'blockdevices': [{'path': '/dev/mapper/old-root', 'type': 'crypt',
+                    'children': [{'path': '/dev/nvme0n1', 'type': 'disk'}]}]}
+        with patch.object(runtime, 'command', side_effect=lambda argv, timeout=0: calls.append(argv)), \
+             patch.object(runtime, 'output', return_value=json.dumps(backing)):
             runtime.deactivate_disk(tree, '/dev/nvme0n1')
         self.assertEqual(calls, [
             ['umount', '--', '/mnt/data/home'],
@@ -219,10 +222,12 @@ class InstallerSafety(unittest.TestCase):
                      patch.object(preflight, 'deactivate_disk'), patch.object(preflight, 'check_disk_tree'), \
                      patch.object(preflight, 'read_manifest', return_value=['base']), \
                      patch.object(preflight, 'microcode', return_value=[]), \
+                     patch.object(preflight, 'select_packages', return_value=['vulkan-intel']), \
                      patch.object(Path, 'is_file', return_value=True), patch.object(preflight, 'command'):
                     preflight.run(GS())
                 packages = json.loads((state / 'selection.json').read_text())['packages']
                 self.assertEqual('plymouth' in packages, firmware == 'bios')
+                self.assertIn('vulkan-intel', packages)
 
     def test_bios_splash_is_configured_before_initramfs_generation(self):
         class GS:
@@ -252,7 +257,8 @@ class InstallerSafety(unittest.TestCase):
                 limine.run(GS())
             config = (root / 'boot/limine/limine.conf').read_text()
             self.assertIn('cmdline: root=UUID=test-root rw rootfstype=ext4 quiet splash', config)
-            self.assertIn('module_path: uuid(test-root):/boot/initramfs-linux-lts.img', config)
+            self.assertIn('path: boot():/vmlinuz-linux-lts', config)
+            self.assertIn('module_path: boot():/initramfs-linux-lts.img', config)
 
     def test_pipeline_checks_before_partition_and_success(self):
         settings = yaml.safe_load((ROOT / 'calamares/settings.conf').read_text())

@@ -32,7 +32,8 @@ On UEFI systems, mkinitcpio builds the LTS kernel, initramfs, microcode, and
 kernel command line into `/boot/efi/EFI/Linux/starch-linux-lts.efi`. Limine
 chainloads that UKI and is installed at both its named EFI path and the standard
 fallback path. Legacy BIOS installations use Limine's native Linux boot
-protocol. GRUB is not installed on the target system.
+protocol, with their kernel, initramfs and Limine files on a separate FAT32
+`/boot` partition. GRUB is not installed on the target system.
 
 The live ISO continues to use Archiso's native live-media boot layout. Those
 boot files and packages are build-time/live-environment details and do not
