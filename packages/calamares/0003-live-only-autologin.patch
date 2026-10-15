@@ -1,0 +1,7 @@
+--- a/src/modules/users/UsersPage.cpp
++++ b/src/modules/users/UsersPage.cpp
+@@ -139,1 +139,3 @@
+-    ui->checkBoxDoAutoLogin->setChecked( m_config->doAutoLogin() );
++    m_config->setAutoLogin( false );
++    ui->checkBoxDoAutoLogin->setChecked( false );
++    ui->checkBoxDoAutoLogin->hide();

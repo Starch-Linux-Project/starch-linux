@@ -1,0 +1,2 @@
+# Live image only. Never copy into the installed target.
+liveuser ALL=(ALL:ALL) NOPASSWD: ALL

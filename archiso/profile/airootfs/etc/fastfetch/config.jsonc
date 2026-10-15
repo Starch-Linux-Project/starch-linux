@@ -1,0 +1,36 @@
+{
+  "logo": {
+    "type": "file",
+    "source": "/usr/share/starch/fastfetch-text",
+    "position": "top",
+    "color": {
+      "1": "cyan"
+    }
+  },
+  "display": {
+    "separator": "  : ",
+    "color": {
+      "keys": "cyan",
+      "title": "cyan"
+    }
+  },
+  "modules": [
+    "title",
+    "separator",
+    "os",
+    "kernel",
+    "uptime",
+    "packages",
+    "shell",
+    "display",
+    "de",
+    "wm",
+    "terminal",
+    "cpu",
+    "gpu",
+    "memory",
+    "disk",
+    "break",
+    "colors"
+  ]
+}
