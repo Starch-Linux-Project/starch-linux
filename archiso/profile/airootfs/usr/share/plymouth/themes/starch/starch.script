@@ -1,0 +1,17 @@
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+logo = Image("logo.png");
+sprite = Sprite(logo);
+sprite.SetX(Window.GetX() + (Window.GetWidth() - logo.GetWidth()) / 2);
+sprite.SetY(Window.GetY() + (Window.GetHeight() - logo.GetHeight()) / 2);
+
+# Keep boot messages visible when Plymouth receives them.
+message_sprite = Sprite();
+fun display_message(text) {
+    image = Image.Text(text, 1, 1, 1);
+    message_sprite.SetImage(image);
+    message_sprite.SetX(Window.GetX() + (Window.GetWidth() - image.GetWidth()) / 2);
+    message_sprite.SetY(Window.GetY() + Window.GetHeight() / 2 + logo.GetHeight());
+}
+Plymouth.SetMessageFunction(display_message);

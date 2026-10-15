@@ -1,0 +1,1 @@
+I have decided to remove older readmes due to sloppy AI writing which I don't think anyone wants to look at. I really just ignored the readme for a long time, and that was a huge mistake I won't make again.

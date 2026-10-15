@@ -1,0 +1,136 @@
+From: Starch Linux Project
+Subject: [PATCH] UI: add branded content and clarify erase-disk selection
+
+Keep the reduced Qt Widgets build while allowing the Starch branding directory
+to provide maintainable rich-text content on the welcome and execution pages.
+Links open through the desktop and the upstream image-slideshow fallback is
+preserved when no Starch content is present.
+
+Move the storage-device row directly below the erase action. The selection
+continues to use the same upstream combo box and device model, so Starch's
+selected-disk guard and BIOS bootloader binding are unchanged.
+
+Upstream-Status: Inappropriate [Starch-specific presentation]
+License: GPL-3.0-or-later
+---
+ src/libcalamaresui/viewpages/Slideshow.cpp   | 22 +++++++++++++++++++++-
+ src/modules/partition/gui/ChoicePage.cpp     |  8 +++++++-
+ src/modules/welcome/WelcomePage.cpp          | 20 ++++++++++++++++++++
+ 3 files changed, 48 insertions(+), 2 deletions(-)
+
+diff --git a/src/libcalamaresui/viewpages/Slideshow.cpp b/src/libcalamaresui/viewpages/Slideshow.cpp
+index 769fe56..8b85b14 100644
+--- a/src/libcalamaresui/viewpages/Slideshow.cpp
++++ b/src/libcalamaresui/viewpages/Slideshow.cpp
+@@ -31,5 +31,6 @@
+ #include <QQuickWidget>
+ #endif
++#include <QFile>
+ #include <QTimer>
+ 
+ #include <chrono>
+@@ -211,9 +212,29 @@ SlideshowPictures::SlideshowPictures( QWidget* parent )
+     m_label->setObjectName( "image" );
+ 
+     m_label->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
++    m_label->setWordWrap( true );
+     m_label->setAlignment( Qt::AlignCenter );
+     m_timer->setInterval( std::chrono::milliseconds( 2000 ) );
+     connect( m_timer, &QTimer::timeout, this, &SlideshowPictures::next );
++
++    // The Starch Qt Widgets build intentionally omits QML. Let branding
++    // provide a maintainable news-and-links page without adding Qt Quick.
++    if ( m_images.isEmpty() )
++    {
++        QFile contentFile( Branding::instance()->componentDirectory() + QStringLiteral( "/slideshow.html" ) );
++        if ( contentFile.open( QFile::ReadOnly | QFile::Text ) )
++        {
++            m_label->setObjectName( "installerContent" );
++            m_label->setTextFormat( Qt::RichText );
++            m_label->setOpenExternalLinks( true );
++            m_label->setTextInteractionFlags( Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard );
++            m_label->setContentsMargins( 24, 24, 24, 24 );
++            QString content = QString::fromUtf8( contentFile.readAll() );
++            m_label->setText(
++                content.replace( QStringLiteral( "@PRODUCT_URL@" ),
++                                 Branding::instance()->string( Branding::ProductUrl ).toHtmlEscaped() ) );
++        }
++    }
+ }
+ 
+ SlideshowPictures::~SlideshowPictures()
+@@ -236,7 +255,7 @@ SlideshowPictures::changeSlideShowState( Calamares::Slideshow::Action a )
+         m_imageIndex = -1;
+         if ( m_images.count() < 1 )
+         {
+-            m_label->setPixmap( QPixmap( ":/data/images/squid.svg" ) );
++            if ( m_label->text().isEmpty() ) m_label->setPixmap( QPixmap( ":/data/images/squid.svg" ) );
+         }
+         else
+         {
+diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gui/ChoicePage.cpp
+index ee67241..23f7749 100644
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -101,7 +101,6 @@ ChoicePage::ChoicePage( Config* config, QWidget* parent )
+     m_drivesLayout->insertSpacing( 1, Calamares::defaultFontHeight() / 2 );
+ 
+     m_drivesCombo = new QComboBox( this );
+-    m_mainLayout->setStretchFactor( m_drivesLayout, 0 );
+     m_mainLayout->setStretchFactor( m_rightLayout, 1 );
+     m_drivesLabel->setBuddy( m_drivesCombo );
+ 
+@@ -111,6 +110,13 @@ ChoicePage::ChoicePage( Config* config, QWidget* parent )
+     m_drivesLayout->addWidget( m_deviceInfoWidget );
+     m_drivesLayout->addStretch();
+ 
++    // With erase as Starch's only installation mode, choosing the target
++    // immediately below that action makes the relationship explicit. Reuse
++    // the existing selector so all device-model and safety behavior remains.
++    m_mainLayout->removeItem( m_drivesLayout );
++    m_rightLayout->insertLayout( 2, m_drivesLayout );
++    m_rightLayout->setStretchFactor( m_drivesLayout, 0 );
++
+     m_messageLabel->setWordWrap( true );
+     m_messageLabel->hide();
+ 
+diff --git a/src/modules/welcome/WelcomePage.cpp b/src/modules/welcome/WelcomePage.cpp
+index 190e442..3cb5963 100644
+--- a/src/modules/welcome/WelcomePage.cpp
++++ b/src/modules/welcome/WelcomePage.cpp
+@@ -32,6 +32,7 @@
+ #include <QComboBox>
+ #include <QDesktopServices>
+ #include <QFocusEvent>
++#include <QFile>
+ #include <QLabel>
+ #include <QMessageBox>
+ 
+@@ -51,6 +52,25 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+     const int welcome_text_idx = ui->verticalLayout->indexOf( ui->mainText );
+     ui->verticalLayout->insertWidget( welcome_text_idx + 1, m_checkingWidget );
+ 
++    // Keep project news in the branding directory so it can be refreshed
++    // without changing module behavior or adding QML to the reduced build.
++    QFile contentFile( Branding::instance()->componentDirectory() + QStringLiteral( "/welcome.html" ) );
++    if ( contentFile.open( QFile::ReadOnly | QFile::Text ) )
++    {
++        QLabel* contentLabel = new QLabel( this );
++        contentLabel->setObjectName( "welcomeContent" );
++        contentLabel->setTextFormat( Qt::RichText );
++        contentLabel->setWordWrap( true );
++        contentLabel->setOpenExternalLinks( true );
++        contentLabel->setTextInteractionFlags( Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard );
++        contentLabel->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Preferred );
++        QString content = QString::fromUtf8( contentFile.readAll() );
++        contentLabel->setText(
++            content.replace( QStringLiteral( "@PRODUCT_URL@" ),
++                             Branding::instance()->string( Branding::ProductUrl ).toHtmlEscaped() ) );
++        ui->verticalLayout->insertWidget( welcome_text_idx + 2, contentLabel );
++    }
++
+     // insert optional logo banner image above welcome text
+     QString bannerPath = Branding::instance()->imagePath( Branding::ProductBanner );
+     if ( !bannerPath.isEmpty() )
+-- 
+2.51.0

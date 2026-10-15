@@ -1,0 +1,7 @@
+# Live session only; excluded from the installed-system overlay.
+[Daemon]
+Autolock=false
+# Plasma's settings dropdown uses Timeout=0 to represent Never.
+Timeout=0
+LockOnResume=false
+LockOnStart=false
