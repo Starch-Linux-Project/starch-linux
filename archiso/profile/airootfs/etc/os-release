@@ -1,8 +1,9 @@
 NAME="Starch Linux"
-PRETTY_NAME="Starch Linux 1.1 Live"
+PRETTY_NAME="Starch Linux 1.2 Live"
 ID=starch
 ID_LIKE=arch
-VERSION="Live"
-VERSION_ID=live
+VERSION="1.2"
+VERSION_ID="1.2"
+VERSION_CODENAME=evergreen
 BUILD_ID=rolling
 ANSI_COLOR="38;2;23;147;209"

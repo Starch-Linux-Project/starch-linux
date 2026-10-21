@@ -14,7 +14,7 @@ class LiveProfile(unittest.TestCase):
         self.assertIn('iso_label="STARCH_', profiledef)
         os_release = (FS / "etc/os-release").read_text()
         self.assertIn('NAME="Starch Linux"', os_release)
-        self.assertIn('PRETTY_NAME="Starch Linux 1.1 Live"', os_release)
+        self.assertIn('PRETTY_NAME="Starch Linux 1.2 Live"', os_release)
         self.assertIn('ID=starch', os_release)
         self.assertEqual((FS / "etc/hostname").read_text().strip(), "starch-live")
         self.assertTrue((FS / "etc/issue").read_text().startswith("Starch Linux Live"))

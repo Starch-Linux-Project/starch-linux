@@ -1,0 +1,12 @@
+#!/usr/bin/openrc-run
+# SPDX-License-Identifier: GPL-3.0-or-later
+description="Display the Starch Linux startup banner"
+
+depend() {
+    before '*'
+    keyword -shutdown
+}
+
+start() {
+    printf '\nStarting Starch Linux\n\n'
+}

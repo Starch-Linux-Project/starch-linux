@@ -2,7 +2,7 @@
 
 pkgname=calamares-starch
 pkgver=3.3.14
-pkgrel=4
+pkgrel=8
 pkgdesc='Qt 6 system installer framework, reduced for Starch Linux'
 arch=(x86_64)
 url='https://calamares.io/'
@@ -36,6 +36,7 @@ source=(
     0002-skip-os-prober.patch
     0003-live-only-autologin.patch
     0004-starch-installer-presentation.patch
+    0005-starch-advanced-page.patch
 )
 sha256sums=(
     5547f80db067dea923ae693ba6bb88eb2b2eeac1da3ebec42fce453e31c290c0
@@ -44,6 +45,7 @@ sha256sums=(
     24a957415dc4b98895f8ec6bb3224c74fab70b92685fc3b1e1d57967c563bcd8
     67385cec233320228c72ea51791bb8ed2ac42c684d7e69d860cba88d5a4b63b4
     88f7f9c1085ee2c6b3827e4db048868b36188603ecf68aed890562c24f71c530
+    f1d5b15b40869e8af71bc3aa1be7bc93061e52090227d3dd7d682a7a43d07bab
 )
 
 prepare() {
@@ -52,6 +54,7 @@ prepare() {
     patch -d "calamares-${pkgver}" -Np1 < 0002-skip-os-prober.patch
     patch -d "calamares-${pkgver}" -Np1 < 0003-live-only-autologin.patch
     patch -d "calamares-${pkgver}" -Np1 < 0004-starch-installer-presentation.patch
+    patch -d "calamares-${pkgver}" -Np1 < 0005-starch-advanced-page.patch
 }
 
 build() {
@@ -69,6 +72,7 @@ build() {
         partition
         services-systemd
         shellprocess
+        starchadvanced
         summary
         umount
         users

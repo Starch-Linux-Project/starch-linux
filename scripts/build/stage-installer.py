@@ -83,14 +83,32 @@ def stage_luu(fs, input_dir=None):
             destination.chmod(mode)
 
 
-def stage(profile, luu_input=None, wallpaper_input=None):
+def stage_lite(fs, input_dir):
+    config = fs / 'etc/calamares/modules/starchadvanced.conf'
+    config.write_text('liteEnabled: false\n')
+    if input_dir is None:
+        return
+    sys.path.insert(0, str(SOURCE / 'scripts/installer'))
+    from profiles import verified_bundle
+    archives = verified_bundle(input_dir)
+    destination = fs / 'usr/share/starch-installer/lite'
+    destination.mkdir(parents=True, exist_ok=True)
+    for archive in archives:
+        shutil.copyfile(archive, destination / archive.name)
+    shutil.copyfile(Path(input_dir) / 'bundle.json', destination / 'bundle.json')
+    config.write_text('liteEnabled: true\n')
+
+
+def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
     fs = profile / 'airootfs'
     config = fs / 'etc/calamares'
     shutil.copytree(SOURCE / 'calamares', config, dirs_exist_ok=True)
+    stage_lite(fs, lite_input)
     data = fs / 'usr/share/starch-installer'
     data.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(SOURCE / 'manifests/minimal-packages.txt', data / 'minimal-packages.txt')
     shutil.copyfile(SOURCE / 'calamares/pacman.conf', data / 'pacman.conf')
+    shutil.copyfile(SOURCE / 'calamares/pacman-lite.conf', data / 'pacman-lite.conf')
     runtime = fs / 'usr/lib/starch-installer'
     shutil.copytree(SOURCE / 'scripts/installer', runtime, ignore=shutil.ignore_patterns('__pycache__'), dirs_exist_ok=True)
     for name in ('preflight', 'bootstrap', 'configure', 'limine', 'validate'):
@@ -144,4 +162,5 @@ if __name__ == '__main__':
     if profile == (SOURCE / 'archiso/profile').resolve() or not (profile / 'profiledef.sh').is_file():
         sys.exit('Installer staging requires a generated profile snapshot.')
     stage(profile, sys.argv[2] if len(sys.argv) >= 3 else None,
-          sys.argv[3] if len(sys.argv) == 4 else None)
+          sys.argv[3] if len(sys.argv) == 4 else None,
+          SOURCE / 'build/starch-lite/artix-repo')

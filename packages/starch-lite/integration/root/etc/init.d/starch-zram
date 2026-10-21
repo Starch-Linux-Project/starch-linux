@@ -1,0 +1,19 @@
+#!/usr/bin/openrc-run
+# SPDX-License-Identifier: GPL-3.0-or-later
+depend() {
+    need localmount
+    after modules
+}
+start() {
+    ebegin 'Configuring compressed swap'
+    modprobe zram || return 1
+    # Match standard Starch's min(ram / 2, 4096 MiB) policy.
+    local size
+    size=$(awk '/^MemTotal:/ {n=int($2/2); if(n>4194304)n=4194304; print n "K"}' /proc/meminfo)
+    zramctl /dev/zram0 --algorithm zstd --size "$size" &&
+        mkswap /dev/zram0 && swapon --priority 100 /dev/zram0
+    eend $?
+}
+stop() {
+    swapoff /dev/zram0 && zramctl --reset /dev/zram0
+}

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Xfce
+Comment=Starch Linux Xfce desktop
+Exec=startxfce4
+TryExec=/usr/bin/startxfce4
+DesktopNames=XFCE

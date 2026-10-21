@@ -1,0 +1,126 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Supervise the PipeWire stack without relying on systemd user units.
+set -u
+
+# Both the login wrapper and Plasma autostart may invoke us. Only one
+# supervisor may own this user's audio stack in the runtime directory.
+: "${XDG_RUNTIME_DIR:?A logged-in user runtime directory is required}"
+exec 9>"$XDG_RUNTIME_DIR/starch-audio.lock"
+flock -n 9 || exit 0
+
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/starch
+log_file=$state_dir/audio-session.log
+mkdir -p "$state_dir"
+chmod 700 "$state_dir"
+exec >>"$log_file" 2>&1
+
+pipewire_pid=
+pulse_pid=
+wireplumber_pid=
+stop_requested=false
+
+is_running() {
+    pid=$1
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null &&
+        [ "$(awk '{ print $3 }' "/proc/$pid/stat" 2>/dev/null)" != Z ]
+}
+
+stop_stack() {
+    for pid in "$wireplumber_pid" "$pulse_pid" "$pipewire_pid"; do
+        [ -z "$pid" ] || kill "$pid" 2>/dev/null || :
+    done
+    attempts=0
+    while [ "$attempts" -lt 30 ]; do
+        running=false
+        for pid in "$wireplumber_pid" "$pulse_pid" "$pipewire_pid"; do
+            if is_running "$pid"; then
+                running=true
+            fi
+        done
+        [ "$running" = false ] && break
+        attempts=$((attempts + 1))
+        sleep 0.1
+    done
+    for pid in "$wireplumber_pid" "$pulse_pid" "$pipewire_pid"; do
+        [ -z "$pid" ] || kill -KILL "$pid" 2>/dev/null || :
+    done
+    for pid in "$wireplumber_pid" "$pulse_pid" "$pipewire_pid"; do
+        [ -z "$pid" ] || wait "$pid" 2>/dev/null || :
+    done
+    pipewire_pid=
+    pulse_pid=
+    wireplumber_pid=
+}
+
+shutdown() {
+    stop_requested=true
+    stop_stack
+    exit 0
+}
+trap shutdown TERM INT HUP
+trap stop_stack EXIT
+
+wait_for_pipewire() {
+    attempts=0
+    while [ "$attempts" -lt 100 ]; do
+        is_running "$pipewire_pid" || return 1
+        pw-cli info 0 >/dev/null 2>&1 && return 0
+        attempts=$((attempts + 1))
+        sleep 0.1
+    done
+    return 1
+}
+
+wait_for_pulse() {
+    attempts=0
+    while [ "$attempts" -lt 100 ]; do
+        is_running "$pulse_pid" || return 1
+        PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native" pactl info >/dev/null 2>&1 && return 0
+        attempts=$((attempts + 1))
+        sleep 0.1
+    done
+    return 1
+}
+
+while [ "$stop_requested" = false ]; do
+    printf '\n[%s] Starting PipeWire audio session\n' "$(date --iso-8601=seconds)"
+    pipewire &
+    pipewire_pid=$!
+    if ! wait_for_pipewire; then
+        echo 'PipeWire failed to become ready.'
+        stop_stack
+        sleep 2
+        continue
+    fi
+
+    pipewire-pulse &
+    pulse_pid=$!
+    if ! wait_for_pulse; then
+        echo 'PipeWire PulseAudio service failed to become ready.'
+        stop_stack
+        sleep 2
+        continue
+    fi
+
+    wireplumber &
+    wireplumber_pid=$!
+    sleep 1
+    if ! is_running "$wireplumber_pid"; then
+        echo 'WirePlumber exited during startup.'
+        stop_stack
+        sleep 2
+        continue
+    fi
+
+    echo 'PipeWire, PipeWire PulseAudio and WirePlumber are ready.'
+    while is_running "$pipewire_pid" &&
+          is_running "$pulse_pid" &&
+          is_running "$wireplumber_pid"; do
+        sleep 1
+    done
+    [ "$stop_requested" = true ] && break
+    echo 'An audio process exited; restarting the audio session.'
+    stop_stack
+    sleep 2
+done

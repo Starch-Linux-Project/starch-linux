@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Own the non-systemd audio supervisor for the lifetime of this session.
+set -eu
+/usr/lib/starch-lite/audio-session &
+audio_pid=$!
+cleanup() {
+    kill "$audio_pid" 2>/dev/null || :
+    wait "$audio_pid" 2>/dev/null || :
+}
+trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+/usr/bin/startplasma-wayland

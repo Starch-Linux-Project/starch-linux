@@ -1,0 +1,40 @@
+#!/bin/sh
+# Seed per-user defaults once, preserving subsequent customization.
+set -eu
+state=${XDG_STATE_HOME:-$HOME/.local/state}/starch
+mkdir -p "$state"
+[ ! -f "$state/xfce-configured" ] || exit 0
+config=${XDG_CONFIG_HOME:-$HOME/.config}/xfce4/xfconf/xfce-perchannel-xml
+mkdir -p "$config"
+if [ ! -f "$config/xfce4-panel.xml" ]; then
+    cp /usr/share/starch-lite/xfce-panel.xml "$config/xfce4-panel.xml"
+fi
+preserved=" "
+for channel in xsettings xfwm4 xfce4-session xfce4-desktop; do
+    if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/xfce4/xfconf/xfce-perchannel-xml/$channel.xml" ]; then
+        preserved="$preserved$channel "
+    fi
+done
+set_default() {
+    channel=$1 property=$2 type=$3 value=$4
+    case "$preserved" in *" $channel "*) return 0 ;; esac
+    if xfconf-query -c "$channel" -p "$property" >/dev/null 2>&1; then
+        xfconf-query -c "$channel" -p "$property" -s "$value"
+    else
+        xfconf-query -c "$channel" -p "$property" -n -t "$type" -s "$value"
+    fi
+}
+set_default xsettings /Net/ThemeName string Adwaita-dark
+set_default xsettings /Net/IconThemeName string Adwaita
+set_default xsettings /Gtk/EnableAnimations bool false
+set_default xfwm4 /general/use_compositing bool false
+set_default xfce4-session /general/SaveOnExit bool false
+set_default xfce4-session /compat/LaunchGNOME bool false
+set_default xfce4-session /compat/LaunchKDE bool false
+# Xfdesktop identifies outputs by their XRandR connector name.
+for monitor in $(xrandr --query | awk '$2 == "connected" {print $1}'); do
+    set_default xfce4-desktop "/backdrop/screen0/monitor$monitor/workspace0/last-image" string \
+        /usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg
+    set_default xfce4-desktop "/backdrop/screen0/monitor$monitor/workspace0/image-style" int 5
+done
+touch "$state/xfce-configured"

@@ -9,8 +9,8 @@ navigation: widget
 strings:
   productName: Starch Linux
   shortProductName: Starch
-  version: "1.1"
-  shortVersion: "1.1"
+  version: "1.2"
+  shortVersion: "1.2"
   versionedName: Starch Linux
   shortVersionedName: Starch Linux
   bootloaderEntryName: Starch

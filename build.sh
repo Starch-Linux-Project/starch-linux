@@ -71,6 +71,7 @@ if (( EUID != 0 )); then
 fi
 # Build/reuse the pinned installer in an isolated official-Arch build root.
 "$REPO_ROOT/scripts/build/calamares.sh" --ensure
+"$REPO_ROOT/scripts/build/starch-lite.sh" --ensure
 # Fresh paths avoid mkarchiso's run-once markers reusing an older profile.
 run_dir=$(mktemp -d "$REPO_ROOT/build/work/run-XXXXXXXX")
 run_id=${run_dir##*/}
@@ -110,7 +111,9 @@ cat "$run_dir/installer-repo/package-version.txt" >>"$output/build-report.txt"
 cp -- "$REPO_ROOT/manifests/minimal-packages.txt" "$output/target-requested-packages.txt"
 cp -a -- "$run_dir/installer-repo/sources" "$output/calamares-sources"
 cp -a -- "$run_dir/installer-repo/notices" "$output/calamares-notices"
-tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares wallpapers tests README.md docs/third-party-provenance.tsv
+tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares packages/starch-lite wallpapers tests README.md docs/third-party-provenance.tsv docs/starch-lite.md
+cp -a -- "$REPO_ROOT/build/starch-lite/artix-repo/sources" "$output/starch-lite-sources"
+cp -- "$REPO_ROOT/build/starch-lite/artix-repo/bundle.json" "$output/starch-lite-bundle.json"
 cp -- "$run_dir/profile/packages.x86_64" "$output/requested-packages.txt"
 # Preserve the exact source profile, including symlinks and file permissions.
 tar -C "$run_dir" -czf "$output/profile-source.tar.gz" profile

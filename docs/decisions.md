@@ -1,6 +1,9 @@
 # Supported scope and non-goals
 
-This document describes the Starch Linux platform and installation model.
+This document describes the standard Starch Linux platform and installation model.
+The opt-in development-only [Starch Lite profile](starch-lite.md) uses Linux Zen
+and Artix OpenRC packages with Artix system/world/galaxy followed by Arch extra.
+Its release gate and exceptions are documented separately.
 
 ## Platform and desktop
 

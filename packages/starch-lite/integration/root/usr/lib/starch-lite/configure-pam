@@ -1,0 +1,13 @@
+#!/usr/bin/python3
+"""Preserve Arch authentication rules while registering sessions with elogind."""
+from pathlib import Path
+import re
+
+for name in ('system-login', 'sddm-greeter'):
+    path = Path('/etc/pam.d') / name
+    content = path.read_text()
+    if not re.search(r'\bpam_(?:systemd|elogind)\.so\b', content):
+        raise SystemExit(f'No supported session registration rule in {path}')
+    content = re.sub(r'^-?session\s+\S+\s+pam_(?:systemd|elogind)\.so.*$',
+                     'session required pam_elogind.so', content, flags=re.M)
+    path.write_text(content)

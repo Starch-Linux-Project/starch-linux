@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = pambase
+Target = sddm
+Target = starch-lite
+
+[Action]
+Description = Configuring Starch Lite elogind sessions...
+When = PostTransaction
+Exec = /usr/lib/starch-lite/configure-pam

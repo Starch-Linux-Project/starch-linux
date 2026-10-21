@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Starch Audio
+Comment=Start the desktop audio services
+Exec=/usr/lib/starch-lite/audio-session
+TryExec=/usr/lib/starch-lite/audio-session
+OnlyShowIn=KDE;
+Terminal=false
+NoDisplay=true
+X-KDE-autostart-phase=1
