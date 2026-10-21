@@ -4,6 +4,7 @@ import re
 import shutil
 
 from runtime import chroot, output, selected_disk, target
+from profiles import is_lite, kernel_name
 
 
 def root_uuid(fstab):
@@ -13,33 +14,35 @@ def root_uuid(fstab):
     return match.group(1)
 
 
-def configuration(_uuid):
+def configuration(_uuid, kernel='linux-lts'):
+    label = 'Starch Linux' if kernel == 'linux-zen' else 'Starch Linux LTS'
     return (
         'timeout: 5\n'
         'default_entry: 1\n'
         'interface_branding: Starch Linux\n'
         '\n'
-        '/Starch Linux LTS\n'
+        f'/{label}\n'
         '    protocol: efi\n'
-        '    path: boot():/EFI/Linux/starch-linux-lts.efi\n'
+        f'    path: boot():/EFI/Linux/starch-{kernel}.efi\n'
     )
 
 
 def run(gs):
     root = target(gs)
+    kernel = kernel_name(gs)
     disk = selected_disk(gs)
     uuid = root_uuid((root / 'etc/fstab').read_text())
     if gs.value('firmwareType') == 'efi':
         esp = root / 'boot/efi'
         source = root / 'usr/share/limine/BOOTX64.EFI'
-        uki = esp / 'EFI/Linux/starch-linux-lts.efi'
+        uki = esp / f'EFI/Linux/starch-{kernel}.efi'
         if not source.is_file() or not uki.is_file():
             raise RuntimeError('The Limine EFI executable or Starch UKI is missing.')
         for relative in ('EFI/Limine', 'EFI/BOOT'):
             loader = esp / relative
             loader.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, loader / 'BOOTX64.EFI')
-        config = configuration(uuid)
+        config = configuration(uuid, kernel)
         (esp / 'EFI/Limine/limine.conf').write_text(config)
         (esp / 'EFI/BOOT/limine.conf').write_text(config)
 
@@ -77,10 +80,12 @@ def run(gs):
     loader = root / 'boot/limine'
     loader.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(root / 'usr/share/limine/limine-bios.sys', loader / 'limine-bios.sys')
+    label = 'Starch Linux' if is_lite(gs) else 'Starch Linux LTS'
+    options = 'init=/usr/bin/openrc-init' if is_lite(gs) else 'quiet splash'
     (loader / 'limine.conf').write_text(
         'timeout: 5\ndefault_entry: 1\ninterface_branding: Starch Linux\n\n'
-        '/Starch Linux LTS\n    protocol: linux\n'
-        '    path: boot():/vmlinuz-linux-lts\n'
-        '    module_path: boot():/initramfs-linux-lts.img\n'
-        f'    cmdline: root=UUID={uuid} rw rootfstype=ext4 quiet splash\n')
+        f'/{label}\n    protocol: linux\n'
+        f'    path: boot():/vmlinuz-{kernel}\n'
+        f'    module_path: boot():/initramfs-{kernel}.img\n'
+        f'    cmdline: root=UUID={uuid} rw rootfstype=ext4 {options}\n')
     chroot(root, 'limine', 'bios-install', disk, str(bios[0]['partn']))

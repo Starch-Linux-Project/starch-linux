@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Starch desktop defaults
+Exec=timeout --kill-after=2s 15s /usr/lib/starch-lite/xfce-defaults
+OnlyShowIn=XFCE;
+NoDisplay=true

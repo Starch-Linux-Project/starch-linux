@@ -1,0 +1,221 @@
+From: Starch Linux Project
+Subject: [PATCH] Add Advanced warning and experimental Starch Lite profile
+
+Provide a native Qt Widgets page with an acknowledgement before showing
+advanced options. Starch Lite is optional, unchecked by default, and available
+when the normal ISO build stages its verified package bundle.
+
+Upstream-Status: Inappropriate [Starch-specific presentation]
+License: GPL-3.0-or-later
+---
+diff --git a/src/modules/starchadvanced/CMakeLists.txt b/src/modules/starchadvanced/CMakeLists.txt
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchadvanced/CMakeLists.txt
+@@ -0,0 +1,9 @@
++# SPDX-License-Identifier: GPL-3.0-or-later
++include_directories(${PROJECT_BINARY_DIR}/src/libcalamaresui)
++calamares_add_plugin(starchadvanced
++    TYPE viewmodule
++    EXPORT_MACRO PLUGINDLLEXPORT_PRO
++    SOURCES AdvancedViewStep.cpp
++    UI
++    SHARED_LIB
++)
+diff --git a/src/modules/starchadvanced/AdvancedViewStep.h b/src/modules/starchadvanced/AdvancedViewStep.h
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchadvanced/AdvancedViewStep.h
+@@ -0,0 +1,39 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#ifndef STARCH_ADVANCEDVIEWSTEP_H
++#define STARCH_ADVANCEDVIEWSTEP_H
++
++#include "DllMacro.h"
++#include "utils/PluginFactory.h"
++#include "viewpages/ViewStep.h"
++
++#include <QPointer>
++#include <QWidget>
++#include <QCheckBox>
++
++class PLUGINDLLEXPORT AdvancedViewStep : public Calamares::ViewStep
++{
++    Q_OBJECT
++
++public:
++    explicit AdvancedViewStep( QObject* parent = nullptr );
++    ~AdvancedViewStep() override;
++    QString prettyName() const override;
++    QWidget* widget() override;
++    QString prettyStatus() const override;
++    void setConfigurationMap( const QVariantMap& configurationMap ) override;
++    bool isNextEnabled() const override { return true; }
++    bool isBackEnabled() const override { return true; }
++    bool isAtBeginning() const override { return true; }
++    bool isAtEnd() const override { return true; }
++    Calamares::JobList jobs() const override { return {}; }
++
++private:
++    void saveSelection();
++    bool m_liteAvailable = false;
++    QPointer< QWidget > m_widget;
++    QPointer< QCheckBox > m_acknowledge;
++    QPointer< QCheckBox > m_lite;
++    QPointer< QCheckBox > m_xfce;
++};
++CALAMARES_PLUGIN_FACTORY_DECLARATION( AdvancedViewStepFactory )
++#endif
+diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starchadvanced/AdvancedViewStep.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
+@@ -0,0 +1,132 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include "AdvancedViewStep.h"
++#include "GlobalStorage.h"
++#include "JobQueue.h"
++
++#include <QCheckBox>
++#include <QGroupBox>
++#include <QLabel>
++#include <QVBoxLayout>
++
++CALAMARES_PLUGIN_FACTORY_DEFINITION( AdvancedViewStepFactory, registerPlugin< AdvancedViewStep >(); )
++
++AdvancedViewStep::AdvancedViewStep( QObject* parent )
++    : Calamares::ViewStep( parent )
++{
++}
++
++AdvancedViewStep::~AdvancedViewStep()
++{
++    if ( m_widget && !m_widget->parent() )
++    {
++        m_widget->deleteLater();
++    }
++}
++
++QString
++AdvancedViewStep::prettyName() const
++{
++    return tr( "Advanced" );
++}
++
++QWidget*
++AdvancedViewStep::widget()
++{
++    if ( !m_widget )
++    {
++        m_widget = new QWidget;
++        m_widget->setObjectName( "starchAdvancedPage" );
++        auto* layout = new QVBoxLayout( m_widget );
++        auto* warning = new QLabel(
++            tr( "Advanced options are intended for experienced users. They may negatively affect "
++                "system stability, compatibility, or your user experience." ), m_widget );
++        warning->setWordWrap( true );
++        layout->addWidget( warning );
++
++        auto* acknowledge = new QCheckBox( tr( "I understand the risks. Show advanced options." ), m_widget );
++        m_acknowledge = acknowledge;
++        acknowledge->setObjectName( "advancedAcknowledgement" );
++        layout->addWidget( acknowledge );
++
++        auto* options = new QGroupBox( tr( "Optional installation profiles" ), m_widget );
++        options->setObjectName( "advancedOptions" );
++        auto* optionsLayout = new QVBoxLayout( options );
++        auto* lite = new QCheckBox( tr( "Starch Lite (experimental)" ), options );
++        m_lite = lite;
++        lite->setObjectName( "starchLite" );
++        lite->setChecked( false );
++        // Public enablement requires verified package inputs and fresh-install testing.
++        lite->setEnabled( m_liteAvailable );
++        optionsLayout->addWidget( lite );
++        auto* xfce = new QCheckBox( tr( "Use Xfce instead of KDE Plasma (X11)" ), options );
++        m_xfce = xfce;
++        xfce->setObjectName( "starchLiteXfce" );
++        xfce->setEnabled( false );
++        optionsLayout->addWidget( xfce );
++        connect( xfce, &QCheckBox::toggled, this, [this]() { saveSelection(); } );
++        auto* description = new QLabel(
++            tr( "Linux Zen, OpenRC and Limine, with Plasma or Xfce. "
++                "This experimental profile requires boot and desktop compatibility testing." ), options );
++        description->setWordWrap( true );
++        optionsLayout->addWidget( description );
++        auto* status = new QLabel(
++            m_liteAvailable
++                ? tr( "Optional configuration included in this Starch Linux installer." )
++                : tr( "Unavailable because the Starch Lite package bundle is missing." ), options );
++        status->setWordWrap( true );
++        optionsLayout->addWidget( status );
++        options->hide();
++        layout->addWidget( options );
++        connect( acknowledge, &QCheckBox::toggled, this, [this, options]( bool checked ) {
++            options->setVisible( checked );
++            if ( !checked ) m_lite->setChecked( false );
++            saveSelection();
++        } );
++        connect( lite, &QCheckBox::toggled, this, [this]( bool checked ) {
++            m_xfce->setEnabled( checked );
++            if ( !checked ) m_xfce->setChecked( false );
++            saveSelection();
++        } );
++
++        auto* standard = new QLabel( tr( "Leave Starch Lite unchecked to install standard Starch Linux." ), m_widget );
++        standard->setWordWrap( true );
++        layout->addWidget( standard );
++        layout->addStretch();
++        saveSelection();
++    }
++    return m_widget;
++}
++
++void
++AdvancedViewStep::setConfigurationMap( const QVariantMap& configurationMap )
++{
++    Calamares::ViewStep::setConfigurationMap( configurationMap );
++    m_liteAvailable = configurationMap.value( "liteEnabled", false ).toBool();
++    if ( m_lite )
++    {
++        m_lite->setEnabled( m_liteAvailable );
++        if ( !m_liteAvailable ) m_lite->setChecked( false );
++    }
++    saveSelection();
++}
++
++void
++AdvancedViewStep::saveSelection()
++{
++    auto* storage = Calamares::JobQueue::instance()->globalStorage();
++    const bool acknowledged = m_acknowledge && m_acknowledge->isChecked();
++    storage->insert( "starchAdvancedAcknowledged", acknowledged );
++    const bool lite = acknowledged && m_liteAvailable && m_lite && m_lite->isChecked();
++    storage->insert( "starchLite", lite );
++    storage->insert( "starchLiteXfce", lite && m_xfce && m_xfce->isChecked() );
++}
++
++QString
++AdvancedViewStep::prettyStatus() const
++{
++    if ( m_liteAvailable && m_lite && m_lite->isChecked() && m_xfce && m_xfce->isChecked() )
++        return tr( "Starch Lite: Linux Zen, OpenRC and Xfce (X11), without KDE Plasma." );
++    if ( m_liteAvailable && m_lite && m_lite->isChecked() )
++        return tr( "Starch Lite: Linux Zen, OpenRC, Limine and KDE Plasma (experimental)." );
++    return tr( "Standard Starch Linux: Linux LTS and systemd." );
++}
+diff --git a/src/modules/starchadvanced/starchadvanced.conf b/src/modules/starchadvanced/starchadvanced.conf
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchadvanced/starchadvanced.conf
+@@ -0,0 +1,1 @@
++liteEnabled: false
+diff --git a/src/modules/starchadvanced/starchadvanced.schema.yaml b/src/modules/starchadvanced/starchadvanced.schema.yaml
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchadvanced/starchadvanced.schema.yaml
+@@ -0,0 +1,5 @@
++$schema: http://json-schema.org/draft-07/schema#
++type: object
++additionalProperties: false
++properties:
++  liteEnabled: { type: boolean, default: false }

@@ -1,0 +1,19 @@
+# Maintainer: Starch Linux project
+pkgname=starch-lite
+pkgver=0.2.2
+pkgrel=8
+pkgdesc='Optional Zen/OpenRC configuration for Starch Linux'
+arch=(x86_64)
+url='https://github.com/SethDoesTech/starch-linux'
+license=(GPL-3.0-or-later)
+depends=(openrc elogind elogind-openrc linux-zen mkinitcpio limine eukify
+         dbus-openrc networkmanager-openrc nftables-openrc bluez-openrc
+         sddm-openrc syslog-ng-openrc artix-archlinux-support
+         pipewire pipewire-pulse wireplumber util-linux procps-ng python)
+source=(integration.tar.gz)
+# Filled by the build driver from the captured, maintained source tree.
+sha256sums=(INTEGRATION_SHA256)
+
+package() {
+    cp -a root/. "$pkgdir/"
+}

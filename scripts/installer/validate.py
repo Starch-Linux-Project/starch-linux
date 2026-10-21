@@ -1,6 +1,8 @@
 import configparser
 import re
 from runtime import chroot, output, preserve_logs, read_manifest, target
+from profiles import is_lite, has_xfce, kernel_name
+import lite
 
 
 def validate_machine_id(root):
@@ -15,17 +17,23 @@ def validate_machine_id(root):
 
 def run(gs):
     root = target(gs)
+    kernel = kernel_name(gs)
     validate_machine_id(root)
     chroot(root, 'cmp', '/etc/machine-id', '/var/lib/dbus/machine-id')
-    chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
+    if is_lite(gs):
+        lite.validate(root, xfce=has_xfce(gs))
+        chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-openrc')
+    else:
+        chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
     chroot(root, 'getent', 'passwd', 'dbus')
     chroot(root, 'getent', 'group', 'dbus')
-    for path in ('/usr/bin/dbus-broker-launch', '/usr/bin/dbus-broker'):
+    for path in (() if is_lite(gs) else ('/usr/bin/dbus-broker-launch', '/usr/bin/dbus-broker')):
         chroot(root, 'test', '-x', path)
-    for unit in ('dbus.service', 'sockets.target.wants/dbus.socket'):
+    for unit in (() if is_lite(gs) else ('dbus.service', 'sockets.target.wants/dbus.socket')):
         chroot(root, 'test', '-f', '/usr/lib/systemd/system/' + unit)
     # Includes static units; also rejects disabled or masked activation.
-    chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
+    if not is_lite(gs):
+        chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
     sddm = configparser.ConfigParser(interpolation=None)
     sddm.read(root / 'etc/sddm.conf')
     if sddm.get('Autologin', 'User', fallback=None) != '' or sddm.getboolean('Autologin', 'Relogin', fallback=True):
@@ -39,17 +47,19 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
-    if not (home / '.config/kdeglobals').is_file() or not (home / '.config/kwinrc').is_file():
-        raise RuntimeError('Desktop or virtual-keyboard defaults were not applied to the installed user.')
-    kwinrc = configparser.ConfigParser(interpolation=None)
-    kwinrc.read(home / '.config/kwinrc')
-    if kwinrc.get('Wayland', 'InputMethod[$e]', fallback=None) != '/usr/share/applications/org.kde.plasma.keyboard.desktop':
-        raise RuntimeError('Installed user has no Plasma Keyboard input-method default.')
+    if not has_xfce(gs):
+        if not (home / '.config/kdeglobals').is_file() or not (home / '.config/kwinrc').is_file():
+            raise RuntimeError('Desktop or virtual-keyboard defaults were not applied to the installed user.')
+        kwinrc = configparser.ConfigParser(interpolation=None)
+        kwinrc.read(home / '.config/kwinrc')
+        if kwinrc.get('Wayland', 'InputMethod[$e]', fallback=None) != '/usr/share/applications/org.kde.plasma.keyboard.desktop':
+            raise RuntimeError('Installed user has no Plasma Keyboard input-method default.')
     shadow = {p[0]: p[1] for p in (line.split(':') for line in (root / 'etc/shadow').read_text().splitlines())}
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
         raise RuntimeError('Installed account password state is incorrect.')
-    for name in ('boot/vmlinuz-linux-lts', 'etc/locale.conf', 'etc/hostname',
-                 'usr/share/wayland-sessions/plasma.desktop'):
+    desktop_file = ('usr/share/starch-lite/xsessions/starch-xfce.desktop' if has_xfce(gs)
+                    else 'usr/share/wayland-sessions/plasma.desktop')
+    for name in (f'boot/vmlinuz-{kernel}', 'etc/locale.conf', 'etc/hostname', desktop_file):
         if not (root / name).is_file() or not (root / name).stat().st_size:
             raise RuntimeError(f'Missing installed file: {name}')
     for name, mode in {
@@ -65,13 +75,15 @@ def run(gs):
     if 'NOPASSWD' in (root / 'etc/sudoers.d/10-installer').read_text():
         raise RuntimeError('Installed sudo must require authentication.')
     chroot(root, 'visudo', '-c')
-    # SDDM's default Wayland compositor is Weston, which we do not install.
-    # Check KWin inside the target so a missing executable stops installation.
-    chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
-    chroot(root, 'test', '-x', '/usr/bin/plasma-keyboard')
-    chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
-    chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
-    chroot(root, 'pacman', '-Qk', 'base', 'linux-lts', 'limine', 'fish', 'sddm', 'networkmanager', 'plasma-keyboard', 'qt6-virtualkeyboard')
+    if has_xfce(gs):
+        chroot(root, 'pacman', '-Qk', 'xfce4-session', 'xfwm4', 'thunar', 'xorg-server', 'polkit-gnome')
+    else:
+        chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
+        chroot(root, 'test', '-x', '/usr/bin/plasma-keyboard')
+        chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
+        chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
+        chroot(root, 'pacman', '-Qk', 'plasma-keyboard', 'qt6-virtualkeyboard')
+    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'sddm', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -80,7 +92,7 @@ def run(gs):
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
-    for service in ('sddm.service', 'NetworkManager.service', 'nftables.service', 'bluetooth.service'):
+    for service in (() if is_lite(gs) else ('sddm.service', 'NetworkManager.service', 'nftables.service', 'bluetooth.service')):
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):
@@ -90,30 +102,44 @@ def run(gs):
             raise RuntimeError('EFI mount is missing from fstab.')
         for name in ('boot/efi/EFI/Limine/BOOTX64.EFI', 'boot/efi/EFI/Limine/limine.conf',
                      'boot/efi/EFI/BOOT/BOOTX64.EFI', 'boot/efi/EFI/BOOT/limine.conf',
-                     'boot/efi/EFI/Linux/starch-linux-lts.efi'):
+                     f'boot/efi/EFI/Linux/starch-{kernel}.efi'):
             if not (root / name).is_file() or not (root / name).stat().st_size:
                 raise RuntimeError(f'Missing Limine EFI file: {name}')
         limine = (root / 'boot/efi/EFI/Limine/limine.conf').read_text()
-        if 'protocol: efi' not in limine or 'EFI/Linux/starch-linux-lts.efi' not in limine:
+        if 'protocol: efi' not in limine or f'EFI/Linux/starch-{kernel}.efi' not in limine:
             raise RuntimeError('Limine has no Starch UKI entry.')
+        if is_lite(gs) and 'init=/usr/bin/openrc-init' not in (root / 'etc/kernel/cmdline').read_text():
+            raise RuntimeError('Lite UKI command line does not select OpenRC.')
     else:
         if not re.search(r'^UUID=\S+\s+/boot\s+vfat\s', fstab, re.M):
             raise RuntimeError('FAT32 BIOS /boot mount is missing from fstab.')
-        for name in ('boot/initramfs-linux-lts.img', 'boot/limine/limine-bios.sys',
+        for name in (f'boot/initramfs-{kernel}.img', 'boot/limine/limine-bios.sys',
                      'boot/limine/limine.conf'):
             if not (root / name).is_file() or not (root / name).stat().st_size:
                 raise RuntimeError(f'Missing Limine BIOS file: {name}')
         config = (root / 'boot/limine/limine.conf').read_text()
-        if ('path: boot():/vmlinuz-linux-lts' not in config or
-                'module_path: boot():/initramfs-linux-lts.img' not in config):
+        if (f'path: boot():/vmlinuz-{kernel}' not in config or
+                f'module_path: boot():/initramfs-{kernel}.img' not in config):
             raise RuntimeError('Limine BIOS must load the kernel and initramfs from FAT32 /boot.')
+        if is_lite(gs) and 'init=/usr/bin/openrc-init' not in config:
+            raise RuntimeError('Lite BIOS command line does not select OpenRC.')
     versions = output(['arch-chroot', root, 'pacman', '-Q'])
     requested = read_manifest(root / 'var/log/starch-installer/requested-packages.txt')
     missing = set(requested) - {line.split()[0] for line in versions.splitlines()}
     if missing:
         raise RuntimeError('Requested target packages are missing: ' + ', '.join(sorted(missing)))
-    if any(line.split()[0] in {'calamares', 'grub', 'mkinitcpio-archiso', 'archinstall', 'linux',
-                               'plasma-x11-session'} for line in versions.splitlines()):
+    forbidden = {'calamares', 'grub', 'mkinitcpio-archiso', 'archinstall', 'linux'}
+    if is_lite(gs):
+        # Artix Plasma depends on plasma-x11-session; SDDM still exposes only
+        # our Wayland session. Do not apply this exception to standard Starch.
+        forbidden.update({'systemd', 'systemd-sysvcompat', 'linux-lts',
+                          'starch-lite-openrc', 'starch-lite-elogind'})
+    else:
+        forbidden.add('plasma-x11-session')
+    if has_xfce(gs):
+        forbidden.update({'plasma-desktop', 'plasma-workspace', 'plasma-x11-session',
+                          'kwin', 'kwin-x11', 'plasma-keyboard', 'xdg-desktop-portal-kde'})
+    if any(line.split()[0] in forbidden for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')
     preserve_logs(root)
     (root / 'var/log/starch-installer/installed-packages.txt').write_text(versions + '\n')

@@ -10,3 +10,6 @@ things may break. Test in a virtual machine before using real hardware.
 
 See [docs/](docs/) for technical documentation and [LICENSE](LICENSE) for the
 license.
+
+For the optional Zen/OpenRC configuration in the installer's Advanced tab,
+see [Starch Lite build and testing instructions](docs/starch-lite.md).

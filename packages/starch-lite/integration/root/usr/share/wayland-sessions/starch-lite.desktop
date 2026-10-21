@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Plasma (Wayland)
+Comment=Plasma by KDE
+Exec=/usr/lib/starch-lite/plasma-session
+TryExec=/usr/bin/startplasma-wayland
+DesktopNames=KDE

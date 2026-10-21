@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+# PAM/elogind must create and own this directory. Never fabricate a session.
+test -n "${XDG_RUNTIME_DIR:-}"
+test -d "$XDG_RUNTIME_DIR"
+test "$(stat -c %u "$XDG_RUNTIME_DIR")" = "$(id -u)"
+test "$(stat -c %a "$XDG_RUNTIME_DIR")" = 700
+unset DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+exec dbus-run-session -- /usr/lib/starch-lite/plasma-session-inner
