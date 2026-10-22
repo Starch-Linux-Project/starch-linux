@@ -79,6 +79,10 @@ Starch version and branding. The Zen boot entry is named **Starch Linux** and
 the session is **Plasma (Wayland)**. “Starch Lite” identifies only the optional
 installer configuration and its maintenance package.
 
+The Plasma profile uses the Starch panel layout with Firefox, Nautilus, COSMIC
+Terminal and Linux Update Utility pinned in that order. The Xfce profile also
+pins Linux Update Utility in its panel.
+
 ## Build and select
 
 Build the configuration package and verified keyring bundle:
@@ -135,7 +139,7 @@ With Starch Lite checked in Advanced, select **Use Xfce instead of KDE Plasma
 (X11)**. This installs Xfce as the only desktop, not alongside Plasma. It remains
 Starch Linux with the same Evergreen wallpaper. Plasma, KWin, the Plasma keyboard
 and KDE desktop applications are excluded before package resolution. Thunar,
-Xfce Terminal, Ristretto, Xfce Screenshooter and Task Manager supply their desktop
+COSMIC Terminal, Ristretto, Xfce Screenshooter and Task Manager supply their desktop
 roles; GTK portals and the GNOME PolicyKit agent replace KDE's integrations.
 Qt libraries may still be installed for SDDM or applications.
 

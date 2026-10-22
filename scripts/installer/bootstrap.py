@@ -1,9 +1,23 @@
 import json
 import hashlib
 import shutil
-from runtime import DATA, STATE, chroot, command, target
+from runtime import DATA, LOG, STATE, chroot, command, target
 from profiles import LITE_PACKAGES, is_lite, has_xfce, pacman_config, verified_bundle
 from repositories import prepare_lite_keyring
+
+
+def pacstrap(root, config_path, keyring_args, packages, attempts=3):
+    """Resume the package transaction after transient mirror failures."""
+    argv = ['pacstrap', '-K', '-M', '-C', config_path, root, *keyring_args, *packages]
+    for attempt in range(1, attempts + 1):
+        try:
+            command(argv)
+            return
+        except RuntimeError:
+            if attempt == attempts:
+                raise
+            with LOG.open('a') as log:
+                log.write(f'pacstrap attempt {attempt} failed; retrying with cached downloads.\n')
 
 
 def run(gs):
@@ -23,7 +37,7 @@ def run(gs):
         # artix-keyring itself comes from the signed Artix repository transaction.
         archives = [p for p in archives if p.name.startswith('starch-lite-')]
     # Fresh root and keyring; never copy the live filesystem or its users.
-    command(['pacstrap', '-K', '-M', '-C', config_path, root, *keyring_args, *packages])
+    pacstrap(root, config_path, keyring_args, packages)
     shutil.copyfile(config_path, root / 'etc/pacman.conf')
     if is_lite(gs):
         chroot(root, 'pacman-key', '--populate', 'artix', 'archlinux')
@@ -42,8 +56,7 @@ def run(gs):
                *['/var/cache/starch-lite/' + archive.name for archive in archives])
         config.unlink()
     # Seed /etc/skel before Calamares creates the account and home directory.
-    ignore = (shutil.ignore_patterns('kdeglobals', 'kwinrc', 'baloofilerc',
-                                    'konsolerc', 'konsole', 'plasma')
+    ignore = (shutil.ignore_patterns('kdeglobals', 'kwinrc', 'baloofilerc', 'plasma')
               if has_xfce(gs) else None)
     shutil.copytree(DATA / 'target-overlay', root, dirs_exist_ok=True, ignore=ignore)
     if has_xfce(gs):

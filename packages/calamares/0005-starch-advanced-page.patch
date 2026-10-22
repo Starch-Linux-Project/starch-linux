@@ -1,5 +1,5 @@
 From: Starch Linux Project
-Subject: [PATCH] Add Advanced warning and experimental Starch Lite profile
+Subject: [PATCH] Add Advanced warning and Starch Lite profile
 
 Provide a native Qt Widgets page with an acknowledgement before showing
 advanced options. Starch Lite is optional, unchecked by default, and available
@@ -70,13 +70,14 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,155 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
 +#include "GlobalStorage.h"
 +#include "JobQueue.h"
 +
 +#include <QCheckBox>
++#include <QFrame>
 +#include <QGroupBox>
 +#include <QLabel>
 +#include <QVBoxLayout>
@@ -110,9 +111,34 @@ new file mode 100644
 +        m_widget = new QWidget;
 +        m_widget->setObjectName( "starchAdvancedPage" );
 +        auto* layout = new QVBoxLayout( m_widget );
++        layout->setContentsMargins( 32, 24, 32, 24 );
++        layout->setSpacing( 16 );
++
++        auto* title = new QLabel( tr( "Choose your Starch experience" ), m_widget );
++        title->setObjectName( "advancedTitle" );
++        layout->addWidget( title );
++        auto* introduction = new QLabel(
++            tr( "Standard Starch is recommended for most computers. An alternate, lower-resource "
++                "profile is available for users who want more control over their system." ), m_widget );
++        introduction->setObjectName( "advancedIntroduction" );
++        introduction->setWordWrap( true );
++        layout->addWidget( introduction );
++
++        auto* standard = new QFrame( m_widget );
++        standard->setObjectName( "standardProfileCard" );
++        auto* standardLayout = new QVBoxLayout( standard );
++        auto* standardName = new QLabel( tr( "Standard Starch Linux  •  RECOMMENDED" ), standard );
++        standardName->setObjectName( "profileTitle" );
++        standardLayout->addWidget( standardName );
++        auto* standardDescription = new QLabel(
++            tr( "Linux LTS, systemd and KDE Plasma Wayland. This profile is selected by default." ), standard );
++        standardDescription->setWordWrap( true );
++        standardLayout->addWidget( standardDescription );
++        layout->addWidget( standard );
++
 +        auto* warning = new QLabel(
-+            tr( "Advanced options are intended for experienced users. They may negatively affect "
-+                "system stability, compatibility, or your user experience." ), m_widget );
++            tr( "Advanced profile — review the differences before continuing." ), m_widget );
++        warning->setObjectName( "advancedWarning" );
 +        warning->setWordWrap( true );
 +        layout->addWidget( warning );
 +
@@ -121,10 +147,10 @@ new file mode 100644
 +        acknowledge->setObjectName( "advancedAcknowledgement" );
 +        layout->addWidget( acknowledge );
 +
-+        auto* options = new QGroupBox( tr( "Optional installation profiles" ), m_widget );
++        auto* options = new QGroupBox( tr( "Starch Lite" ), m_widget );
 +        options->setObjectName( "advancedOptions" );
 +        auto* optionsLayout = new QVBoxLayout( options );
-+        auto* lite = new QCheckBox( tr( "Starch Lite (experimental)" ), options );
++        auto* lite = new QCheckBox( tr( "Starch Lite (Special thanks to the Artix Linux team!)" ), options );
 +        m_lite = lite;
 +        lite->setObjectName( "starchLite" );
 +        lite->setChecked( false );
@@ -138,14 +164,15 @@ new file mode 100644
 +        optionsLayout->addWidget( xfce );
 +        connect( xfce, &QCheckBox::toggled, this, [this]() { saveSelection(); } );
 +        auto* description = new QLabel(
-+            tr( "Linux Zen, OpenRC and Limine, with Plasma or Xfce. "
-+                "This experimental profile requires boot and desktop compatibility testing." ), options );
++            tr( "Alternate config with a tuned zen kernel, openrc and a tuned KDE if you don't select xfce. "
++                "RAM usage can be as low as 700MB on Lite with xfce." ), options );
 +        description->setWordWrap( true );
 +        optionsLayout->addWidget( description );
 +        auto* status = new QLabel(
 +            m_liteAvailable
-+                ? tr( "Optional configuration included in this Starch Linux installer." )
++                ? tr( "READY TO INSTALL  •  Verified profile bundle included" )
 +                : tr( "Unavailable because the Starch Lite package bundle is missing." ), options );
++        status->setObjectName( m_liteAvailable ? "profileReady" : "profileUnavailable" );
 +        status->setWordWrap( true );
 +        optionsLayout->addWidget( status );
 +        options->hide();
@@ -160,10 +187,6 @@ new file mode 100644
 +            if ( !checked ) m_xfce->setChecked( false );
 +            saveSelection();
 +        } );
-+
-+        auto* standard = new QLabel( tr( "Leave Starch Lite unchecked to install standard Starch Linux." ), m_widget );
-+        standard->setWordWrap( true );
-+        layout->addWidget( standard );
 +        layout->addStretch();
 +        saveSelection();
 +    }
@@ -200,7 +223,7 @@ new file mode 100644
 +    if ( m_liteAvailable && m_lite && m_lite->isChecked() && m_xfce && m_xfce->isChecked() )
 +        return tr( "Starch Lite: Linux Zen, OpenRC and Xfce (X11), without KDE Plasma." );
 +    if ( m_liteAvailable && m_lite && m_lite->isChecked() )
-+        return tr( "Starch Lite: Linux Zen, OpenRC, Limine and KDE Plasma (experimental)." );
++        return tr( "Starch Lite: Linux Zen, OpenRC, Limine and KDE Plasma." );
 +    return tr( "Standard Starch Linux: Linux LTS and systemd." );
 +}
 diff --git a/src/modules/starchadvanced/starchadvanced.conf b/src/modules/starchadvanced/starchadvanced.conf

@@ -81,6 +81,19 @@ class LiteProfile(unittest.TestCase):
                         'network-manager-applet', 'xfce4-screensaver'):
             self.assertIn(package, selected)
 
+    def test_plasma_profile_keeps_starch_pinned_apps(self):
+        base = preflight.read_manifest(ROOT / 'manifests/minimal-packages.txt')
+        selected = profiles.lite_packages(base)
+        for package in ('firefox', 'nautilus', 'cosmic-terminal'):
+            self.assertIn(package, selected)
+        layout = (ROOT / 'archiso/profile/airootfs/usr/share/plasma/look-and-feel/'
+                  'org.starch.desktop/contents/layouts/org.kde.plasma.desktop-layout.js').read_text()
+        self.assertIn(
+            'applications:firefox.desktop,applications:org.gnome.Nautilus.desktop,'
+            'applications:com.system76.CosmicTerm.desktop,'
+            'applications:linux-update-utility.desktop', layout)
+        self.assertNotIn('org.kde.konsole.desktop', layout)
+
     def test_xfce_replaces_all_plasma_packages_in_real_manifest(self):
         base = preflight.read_manifest(ROOT / 'manifests/minimal-packages.txt')
         plasma = profiles.lite_packages(base)
@@ -90,8 +103,10 @@ class LiteProfile(unittest.TestCase):
         for package in ('pipewire', 'wireplumber', 'networkmanager', 'nftables',
                         'sddm', 'firefox', 'linux-zen'):
             self.assertIn(package, xfce)
-        for package in ('xfce4-terminal', 'thunar', 'polkit-gnome', 'xdg-desktop-portal-gtk'):
+        for package in ('cosmic-terminal', 'thunar', 'polkit-gnome', 'xdg-desktop-portal-gtk'):
             self.assertIn(package, xfce)
+        self.assertNotIn('konsole', xfce)
+        self.assertNotIn('xfce4-terminal', xfce)
         self.assertNotIn('nautilus', xfce)
 
     def test_xfce_configuration_enables_only_xfce(self):
@@ -131,6 +146,12 @@ class LiteProfile(unittest.TestCase):
             self.assertEqual(config['X11']['SessionDir'], '/usr/share/starch-lite/xsessions')
             self.assertEqual(config['Autologin']['User'], '')
             self.assertEqual(list((root / 'usr/share/starch-lite/no-wayland-sessions').iterdir()), [])
+
+    def test_xfce_panel_pins_linux_update_utility(self):
+        panel = (ROOT / 'packages/starch-lite/integration/root/usr/share/starch-lite/'
+                 'xfce-panel.xml').read_text()
+        self.assertIn('value="launcher"', panel)
+        self.assertIn('value="linux-update-utility.desktop"', panel)
 
     def test_audio_supervisor_starts_services_in_dependency_order(self):
         package_root = ROOT / 'packages/starch-lite/integration/root'
@@ -200,6 +221,21 @@ class LiteProfile(unittest.TestCase):
         self.assertNotIn('STARCH_EXPERIMENTAL_LITE', stage_script)
         self.assertIn('liteEnabled: true',
                       (ROOT / 'calamares/modules/starchadvanced.conf').read_text())
+
+    def test_advanced_page_uses_release_lite_copy(self):
+        patch_text = (ROOT / 'packages/calamares/0005-starch-advanced-page.patch').read_text()
+        self.assertIn('Starch Lite (Special thanks to the Artix Linux team!)', patch_text)
+        self.assertIn(
+            "Alternate config with a tuned zen kernel, openrc and a tuned KDE if you don't select xfce. ",
+            patch_text)
+        self.assertIn('RAM usage can be as low as 700MB on Lite with xfce.', patch_text)
+        self.assertNotIn('experimental', patch_text.lower())
+        for presentation in ('Choose your Starch experience', 'Standard Starch Linux  •  RECOMMENDED',
+                             'READY TO INSTALL  •  Verified profile bundle included'):
+            self.assertIn(presentation, patch_text)
+        stylesheet = (ROOT / 'calamares/branding/starch/stylesheet.qss').read_text()
+        for component in ('#advancedTitle', '#standardProfileCard', '#advancedOptions', '#profileReady'):
+            self.assertIn(component, stylesheet)
 
     def test_repository_and_signing_selection_is_lite_only(self):
         original_is_file = Path.is_file

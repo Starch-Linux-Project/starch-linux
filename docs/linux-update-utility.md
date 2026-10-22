@@ -53,6 +53,9 @@ The `Exec` and `Icon` values use the fixed absolute paths above. `fuse2` is an
 explicit dependency in both the live and installed package manifests because
 the supplied utility is a type-2 AppImage.
 
+The utility is pinned by default in the shared Plasma panel layout and in the
+Starch Lite Xfce panel.
+
 ## Live and installed-system flow
 
 The staging helper writes one copy directly into the generated Archiso

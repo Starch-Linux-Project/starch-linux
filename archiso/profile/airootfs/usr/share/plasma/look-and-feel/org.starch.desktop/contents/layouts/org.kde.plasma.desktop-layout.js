@@ -27,7 +27,7 @@ panel.addWidget("org.kde.plasma.kickoff");
 panel.addWidget("org.kde.plasma.pager");
 var tasks = panel.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
-tasks.writeConfig("launchers", "applications:firefox.desktop,applications:org.gnome.Nautilus.desktop,applications:org.kde.konsole.desktop");
+tasks.writeConfig("launchers", "applications:firefox.desktop,applications:org.gnome.Nautilus.desktop,applications:com.system76.CosmicTerm.desktop,applications:linux-update-utility.desktop");
 panel.addWidget("org.kde.plasma.marginsseparator");
 panel.addWidget("org.kde.plasma.systemtray");
 panel.addWidget("org.kde.plasma.digitalclock");

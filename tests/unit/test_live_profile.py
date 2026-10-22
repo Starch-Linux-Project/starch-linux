@@ -73,7 +73,8 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "plasma-keyboard", "qt6-virtualkeyboard", "networkmanager", "konsole", "kdialog", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "sddm", "plasma-workspace", "plasma-desktop", "plasma-keyboard", "qt6-virtualkeyboard", "networkmanager", "cosmic-terminal", "kdialog", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
+        self.assertNotIn("konsole", packages)
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
         self.assertEqual((FS / "etc/skel/.config/kwinrc").read_text().strip(), "[Wayland]\n# Keep the KDE-native virtual keyboard available in every Plasma Wayland\n# session. KWin/Plasma decide when its panel is shown, including tablet and\n# touch focus behavior; this is intentionally not KWIN_IM_SHOW_ALWAYS.\nInputMethod[$e]=/usr/share/applications/org.kde.plasma.keyboard.desktop")
@@ -124,4 +125,5 @@ class LiveProfile(unittest.TestCase):
         layout = (theme / "contents/layouts/org.kde.plasma.desktop-layout.js").read_text()
         self.assertIn('applications:firefox.desktop', layout)
         self.assertIn('applications:org.gnome.Nautilus.desktop', layout)
-        self.assertIn('applications:org.kde.konsole.desktop', layout)
+        self.assertIn('applications:com.system76.CosmicTerm.desktop', layout)
+        self.assertIn('applications:linux-update-utility.desktop', layout)

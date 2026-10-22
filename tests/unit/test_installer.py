@@ -14,12 +14,20 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/installer'))
 import runtime
 import preflight
+import bootstrap
 import configure
 import limine
 import validate
 
 
 class InstallerSafety(unittest.TestCase):
+    def test_pacstrap_retries_transient_mirror_failures(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(bootstrap, 'command', side_effect=[RuntimeError('mirror'), None]) as command, \
+             patch.object(bootstrap, 'LOG', Path(directory) / 'installer.log'):
+            bootstrap.pacstrap(Path(directory), Path('/pacman.conf'), [], ['base'])
+        self.assertEqual(command.call_count, 2)
+
     def test_installer_presentation_is_branded_and_erase_is_initial(self):
         branding = yaml.safe_load((ROOT / 'calamares/branding/starch/branding.desc').read_text())
         self.assertFalse(branding['welcomeStyleCalamares'])
@@ -38,6 +46,12 @@ class InstallerSafety(unittest.TestCase):
             self.assertNotIn('@PRODUCT_URL@', content)
             self.assertNotIn('href=', content)
             self.assertIn('news', content.lower())
+            self.assertNotIn('1.1', content)
+
+        slideshow = (ROOT / 'calamares/branding/starch/slideshow.html').read_text()
+        for current_news in ('Starch Lite joins Evergreen', 'COSMIC Terminal',
+                             'Linux Update Utility', 'More resilient online installation'):
+            self.assertIn(current_news, slideshow)
 
         partition = yaml.safe_load((ROOT / 'calamares/modules/partition.conf').read_text())
         self.assertEqual(partition['initialPartitioningChoice'], 'erase')
