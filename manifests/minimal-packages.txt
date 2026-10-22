@@ -30,7 +30,7 @@ kscreen
 polkit-kde-agent
 noto-fonts
 ttf-dejavu
-konsole
+cosmic-terminal
 nautilus
 firefox
 fastfetch

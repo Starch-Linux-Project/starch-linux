@@ -7,3 +7,66 @@
     color: #eff0f1;
     padding: 16px;
 }
+
+#starchAdvancedPage {
+    background: transparent;
+    color: palette(window-text);
+}
+#advancedTitle {
+    color: palette(window-text);
+    font-size: 22px;
+    font-weight: 600;
+}
+#advancedIntroduction {
+    color: palette(window-text);
+    font-size: 13px;
+}
+#standardProfileCard,
+#advancedOptions {
+    background-color: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 6px;
+    padding: 12px;
+}
+#standardProfileCard {
+    border-left: 3px solid palette(highlight);
+}
+#advancedOptions {
+    margin-top: 6px;
+    padding-top: 16px;
+}
+#advancedOptions::title {
+    color: palette(window-text);
+    background-color: palette(base);
+    font-size: 15px;
+    font-weight: 600;
+    left: 12px;
+    padding: 0 5px;
+}
+#profileTitle {
+    color: palette(window-text);
+    font-size: 15px;
+    font-weight: 600;
+}
+#advancedWarning {
+    border-left: 3px solid palette(highlight);
+    color: palette(window-text);
+    padding: 6px 10px;
+}
+#advancedAcknowledgement,
+#starchLite,
+#starchLiteXfce {
+    spacing: 9px;
+}
+#starchLite {
+    font-size: 14px;
+    font-weight: 600;
+}
+#profileReady {
+    color: palette(highlight);
+    font-weight: 600;
+}
+#profileUnavailable {
+    color: #e06c75;
+    font-weight: 600;
+}

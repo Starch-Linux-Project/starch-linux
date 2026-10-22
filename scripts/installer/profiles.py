@@ -31,7 +31,7 @@ def has_xfce(gs):
 XFCE_PACKAGES = (
     'xfce4-session', 'xfce4-panel', 'xfce4-settings', 'xfconf', 'xfdesktop',
     'xfwm4', 'thunar', 'thunar-volman', 'tumbler', 'gvfs', 'gvfs-smb',
-    'xfce4-terminal', 'xfce4-power-manager', 'xfce4-screensaver',
+    'xfce4-power-manager', 'xfce4-screensaver',
     'xfce4-notifyd', 'xfce4-pulseaudio-plugin', 'xfce4-whiskermenu-plugin',
     'network-manager-applet', 'pavucontrol', 'xorg-server', 'xorg-xinit',
     'xorg-xrandr', 'adwaita-icon-theme', 'gnome-themes-extra', 'polkit-gnome',
@@ -43,7 +43,7 @@ XFCE_PACKAGES = (
 PLASMA_PACKAGES = {
     'plasma-desktop', 'plasma-workspace', 'plasma-keyboard', 'qt6-virtualkeyboard',
     'breeze', 'xdg-desktop-portal-kde', 'plasma-nm', 'plasma-pa', 'kscreen',
-    'polkit-kde-agent', 'konsole', 'plasma-systemmonitor', 'spectacle', 'gwenview',
+    'polkit-kde-agent', 'plasma-systemmonitor', 'spectacle', 'gwenview',
     'kwallet', 'kwallet-pam', 'kwalletmanager',
 }
 

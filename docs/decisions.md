@@ -119,7 +119,7 @@ The installed package list is maintained in
 - Web browser and PDF viewer: Firefox.
 - Image viewer: Gwenview.
 - Video and music player: VLC.
-- Terminal: Konsole.
+- Terminal: COSMIC Terminal.
 - Graphical text editor: COSMIC Text Editor.
 - Calculator: GNOME Calculator.
 - Disk utility: GNOME Disks.

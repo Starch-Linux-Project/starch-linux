@@ -19,7 +19,7 @@ and installed system.
 - Limine as the installed system's sole bootloader
 - NetworkManager and desktop network controls
 - PipeWire and WirePlumber audio
-- Fish, Konsole, Firefox, Nautilus, Fastfetch, and zram
+- Fish, COSMIC Terminal, Firefox, Nautilus, Fastfetch, and zram
 - Linux Update Utility in the live environment and installed system
 - KDE Plasma Keyboard for touch and keyboard-less use
 - Reproducible build inputs, checksums, and validation reports

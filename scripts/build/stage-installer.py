@@ -128,12 +128,10 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
                      'etc/skel/.config/kwinrc',
                      'etc/xdg/kscreenlockerrc',
                      'usr/share/sddm/themes/breeze/theme.conf.user',
-                     'etc/xdg/konsolerc',
                      'etc/nftables.conf',
                      'etc/fastfetch/config.jsonc', 'usr/share/starch/fastfetch-text',
                      'usr/share/starch/splash-starch.bmp',
                      'usr/share/plymouth/themes/starch',
-                     'usr/share/konsole/Starch Live.profile',
                      'usr/share/plasma/look-and-feel/org.starch.desktop'):
         source = fs / relative
         dest = overlay / relative
@@ -147,10 +145,6 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
     fish = overlay / 'etc/fish/conf.d/10-starch.fish'
     fish.parent.mkdir(parents=True, exist_ok=True)
     fish.write_text('if status is-interactive; and test (id -u) -ne 0\n    fastfetch\nend\n')
-    konsole = overlay / 'usr/share/konsole/Starch Live.profile'
-    (konsole.parent / 'Starch.profile').write_text(konsole.read_text().replace('Name=Starch Live', 'Name=Starch'))
-    konsole.unlink()
-    (overlay / 'etc/xdg/konsolerc').write_text('[Desktop Entry]\nDefaultProfile=Starch.profile\n')
     stage_luu(fs, luu_input)
     stage_wallpapers(fs, wallpaper_input)
 
