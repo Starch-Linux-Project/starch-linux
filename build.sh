@@ -7,7 +7,7 @@ if (( $# != 1 )) || [[ $1 != --check && $1 != --build && $1 != --compile ]]; the
     exit 2
 fi
 failed=0
-for tool in mkarchiso pacman realpath df mountpoint python3 sha256sum tee; do
+for tool in mkarchiso pacman pacman-key realpath df mountpoint python3 sha256sum tee; do
     if ! command -v "$tool" >/dev/null; then echo "Missing tool: $tool" >&2; failed=1; fi
 done
 for name in work cache logs; do
@@ -98,10 +98,19 @@ python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_d
 cp -a -- "$REPO_ROOT/build/calamares/repo" "$run_dir/installer-repo"
 printf '\ncalamares-starch\n' >>"$run_dir/profile/packages.x86_64"
 printf '\n[starch]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$run_dir/installer-repo" >>"$run_dir/profile/pacman.conf"
-python3 - "$run_dir/profile/pacman.conf" "$REPO_ROOT/build/cache" <<'CONFIG'
+# Rootless pacstrap cannot write to the host's root-owned GPGDir. Build a
+# private trust database from the installed official Arch keyring instead.
+keyring="$run_dir/pacman-gnupg"
+keyring_command=(pacman-key --gpgdir "$keyring")
+if (( EUID != 0 )); then
+    keyring_command=(unshare --map-auto --map-root-user -- "${keyring_command[@]}")
+fi
+"${keyring_command[@]}" --init
+"${keyring_command[@]}" --populate archlinux
+python3 - "$run_dir/profile/pacman.conf" "$REPO_ROOT/build/cache" "$keyring" <<'CONFIG'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
-p.write_text(p.read_text().replace('[options]\n', '[options]\nCacheDir = ' + sys.argv[2] + '\n', 1))
+p.write_text(p.read_text().replace('[options]\n', '[options]\nCacheDir = ' + sys.argv[2] + '\nGPGDir = ' + sys.argv[3] + '\n', 1))
 CONFIG
 if ! pacman -Q archiso >"$output/build-report.txt"; then
     printf 'archiso package version unavailable (host pacman query failed)\n' >"$output/build-report.txt"
