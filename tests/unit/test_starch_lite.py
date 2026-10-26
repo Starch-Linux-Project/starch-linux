@@ -230,11 +230,11 @@ class LiteProfile(unittest.TestCase):
             patch_text)
         self.assertIn('RAM usage can be as low as 700MB on Lite with xfce.', patch_text)
         self.assertNotIn('experimental', patch_text.lower())
-        for presentation in ('Choose your Starch experience', 'Standard Starch Linux  •  RECOMMENDED',
+        for presentation in ('Advanced options', 'You can skip this menu.',
                              'READY TO INSTALL  •  Verified profile bundle included'):
             self.assertIn(presentation, patch_text)
         stylesheet = (ROOT / 'calamares/branding/starch/stylesheet.qss').read_text()
-        for component in ('#advancedTitle', '#standardProfileCard', '#advancedOptions', '#profileReady'):
+        for component in ('#advancedGate', '#advancedGateTitle', '#advancedOptions', '#profileReady'):
             self.assertIn(component, stylesheet)
 
     def test_repository_and_signing_selection_is_lite_only(self):

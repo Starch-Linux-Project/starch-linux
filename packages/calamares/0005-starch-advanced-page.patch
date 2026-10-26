@@ -70,7 +70,7 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,172 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
 +#include "GlobalStorage.h"
@@ -79,6 +79,8 @@ new file mode 100644
 +#include <QCheckBox>
 +#include <QFrame>
 +#include <QGroupBox>
++#include <QGraphicsBlurEffect>
++#include <QGridLayout>
 +#include <QLabel>
 +#include <QVBoxLayout>
 +
@@ -114,40 +116,22 @@ new file mode 100644
 +        layout->setContentsMargins( 32, 24, 32, 24 );
 +        layout->setSpacing( 16 );
 +
-+        auto* title = new QLabel( tr( "Choose your Starch experience" ), m_widget );
-+        title->setObjectName( "advancedTitle" );
-+        layout->addWidget( title );
-+        auto* introduction = new QLabel(
-+            tr( "Standard Starch is recommended for most computers. An alternate, lower-resource "
-+                "profile is available for users who want more control over their system." ), m_widget );
-+        introduction->setObjectName( "advancedIntroduction" );
-+        introduction->setWordWrap( true );
-+        layout->addWidget( introduction );
++        auto* stage = new QWidget( m_widget );
++        auto* stageLayout = new QGridLayout( stage );
++        stageLayout->setContentsMargins( 0, 0, 0, 0 );
++        auto* profiles = new QWidget( stage );
++        auto* profilesLayout = new QVBoxLayout( profiles );
++        profilesLayout->setContentsMargins( 0, 0, 0, 0 );
++        profilesLayout->setSpacing( 18 );
++        auto* blur = new QGraphicsBlurEffect( profiles );
++        blur->setBlurRadius( 10 );
++        blur->setBlurHints( QGraphicsBlurEffect::QualityHint );
++        profiles->setGraphicsEffect( blur );
++        profiles->setEnabled( false );
++        stageLayout->addWidget( profiles, 0, 0 );
++        layout->addWidget( stage, 1 );
 +
-+        auto* standard = new QFrame( m_widget );
-+        standard->setObjectName( "standardProfileCard" );
-+        auto* standardLayout = new QVBoxLayout( standard );
-+        auto* standardName = new QLabel( tr( "Standard Starch Linux  •  RECOMMENDED" ), standard );
-+        standardName->setObjectName( "profileTitle" );
-+        standardLayout->addWidget( standardName );
-+        auto* standardDescription = new QLabel(
-+            tr( "Linux LTS, systemd and KDE Plasma Wayland. This profile is selected by default." ), standard );
-+        standardDescription->setWordWrap( true );
-+        standardLayout->addWidget( standardDescription );
-+        layout->addWidget( standard );
-+
-+        auto* warning = new QLabel(
-+            tr( "Advanced profile — review the differences before continuing." ), m_widget );
-+        warning->setObjectName( "advancedWarning" );
-+        warning->setWordWrap( true );
-+        layout->addWidget( warning );
-+
-+        auto* acknowledge = new QCheckBox( tr( "I understand the risks. Show advanced options." ), m_widget );
-+        m_acknowledge = acknowledge;
-+        acknowledge->setObjectName( "advancedAcknowledgement" );
-+        layout->addWidget( acknowledge );
-+
-+        auto* options = new QGroupBox( tr( "Starch Lite" ), m_widget );
++        auto* options = new QGroupBox( tr( "Alternative profile" ), profiles );
 +        options->setObjectName( "advancedOptions" );
 +        auto* optionsLayout = new QVBoxLayout( options );
 +        auto* lite = new QCheckBox( tr( "Starch Lite (Special thanks to the Artix Linux team!)" ), options );
@@ -161,13 +145,17 @@ new file mode 100644
 +        m_xfce = xfce;
 +        xfce->setObjectName( "starchLiteXfce" );
 +        xfce->setEnabled( false );
-+        optionsLayout->addWidget( xfce );
++
 +        connect( xfce, &QCheckBox::toggled, this, [this]() { saveSelection(); } );
 +        auto* description = new QLabel(
 +            tr( "Alternate config with a tuned zen kernel, openrc and a tuned KDE if you don't select xfce. "
 +                "RAM usage can be as low as 700MB on Lite with xfce." ), options );
 +        description->setWordWrap( true );
 +        optionsLayout->addWidget( description );
++        auto* divider = new QFrame( options );
++        divider->setFrameShape( QFrame::HLine );
++        optionsLayout->addWidget( divider );
++        optionsLayout->addWidget( xfce );
 +        auto* status = new QLabel(
 +            m_liteAvailable
 +                ? tr( "READY TO INSTALL  •  Verified profile bundle included" )
@@ -175,19 +163,48 @@ new file mode 100644
 +        status->setObjectName( m_liteAvailable ? "profileReady" : "profileUnavailable" );
 +        status->setWordWrap( true );
 +        optionsLayout->addWidget( status );
-+        options->hide();
-+        layout->addWidget( options );
-+        connect( acknowledge, &QCheckBox::toggled, this, [this, options]( bool checked ) {
-+            options->setVisible( checked );
++        profilesLayout->addWidget( options );
++        profilesLayout->addStretch();
++
++        auto* gate = new QFrame( stage );
++        gate->setObjectName( "advancedGate" );
++        gate->setMaximumWidth( 460 );
++        auto* gateLayout = new QVBoxLayout( gate );
++        gateLayout->setContentsMargins( 28, 28, 28, 28 );
++        gateLayout->setSpacing( 16 );
++        auto* notice = new QLabel( tr( "Advanced options" ), gate );
++        notice->setObjectName( "advancedGateTitle" );
++        notice->setAlignment( Qt::AlignCenter );
++        gateLayout->addWidget( notice );
++        auto* warning = new QLabel(
++            tr( "Only intended for advanced users. These options change core system components." ), gate );
++        warning->setWordWrap( true );
++        warning->setAlignment( Qt::AlignCenter );
++        gateLayout->addWidget( warning );
++        auto* skip = new QLabel(
++            tr( "You can skip this menu. Click Next to continue with the recommended defaults." ), gate );
++        skip->setWordWrap( true );
++        skip->setAlignment( Qt::AlignCenter );
++        gateLayout->addWidget( skip );
++        auto* acknowledge = new QCheckBox( tr( "I understand. Show advanced options." ), gate );
++        m_acknowledge = acknowledge;
++        acknowledge->setObjectName( "advancedAcknowledgement" );
++        gateLayout->addWidget( acknowledge, 0, Qt::AlignHCenter );
++        stageLayout->addWidget( gate, 0, 0, Qt::AlignCenter );
++        gate->raise();
++        connect( acknowledge, &QCheckBox::toggled, this, [this, profiles, blur, gate]( bool checked ) {
++            blur->setEnabled( !checked );
++            profiles->setEnabled( checked );
++            gate->setVisible( !checked );
 +            if ( !checked ) m_lite->setChecked( false );
 +            saveSelection();
++            if ( checked ) m_lite->setFocus( Qt::OtherFocusReason );
 +        } );
 +        connect( lite, &QCheckBox::toggled, this, [this]( bool checked ) {
 +            m_xfce->setEnabled( checked );
 +            if ( !checked ) m_xfce->setChecked( false );
 +            saveSelection();
 +        } );
-+        layout->addStretch();
 +        saveSelection();
 +    }
 +    return m_widget;

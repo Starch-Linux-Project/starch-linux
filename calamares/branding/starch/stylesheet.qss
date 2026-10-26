@@ -12,24 +12,11 @@
     background: transparent;
     color: palette(window-text);
 }
-#advancedTitle {
-    color: palette(window-text);
-    font-size: 22px;
-    font-weight: 600;
-}
-#advancedIntroduction {
-    color: palette(window-text);
-    font-size: 13px;
-}
-#standardProfileCard,
 #advancedOptions {
     background-color: palette(base);
     border: 1px solid palette(mid);
     border-radius: 6px;
     padding: 12px;
-}
-#standardProfileCard {
-    border-left: 3px solid palette(highlight);
 }
 #advancedOptions {
     margin-top: 6px;
@@ -42,16 +29,6 @@
     font-weight: 600;
     left: 12px;
     padding: 0 5px;
-}
-#profileTitle {
-    color: palette(window-text);
-    font-size: 15px;
-    font-weight: 600;
-}
-#advancedWarning {
-    border-left: 3px solid palette(highlight);
-    color: palette(window-text);
-    padding: 6px 10px;
 }
 #advancedAcknowledgement,
 #starchLite,
@@ -69,4 +46,25 @@
 #profileUnavailable {
     color: #e06c75;
     font-weight: 600;
+}
+
+#advancedGate {
+    background-color: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 16px;
+    color: palette(text);
+}
+#advancedGate QLabel {
+    background: transparent;
+    border: none;
+    color: palette(text);
+}
+#advancedGateTitle {
+    font-size: 22px;
+    font-weight: 600;
+}
+#advancedGate #advancedAcknowledgement {
+    color: palette(text);
+    font-weight: 600;
+    padding: 12px 0;
 }
