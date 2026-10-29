@@ -19,6 +19,10 @@ expected_package_dir=/build/calamares
     exit 1
 }
 
+# Reused roots may have an unpopulated or stale active trust database.
+pacman-key --init
+pacman-key --populate archlinux
+pacman -Sy --noconfirm --needed archlinux-keyring
 pacman -Syu --noconfirm --needed \
     base-devel cmake extra-cmake-modules git kpmcore libpwquality ninja \
     parted polkit-qt6 pybind11 python python-jsonschema python-yaml qt6-base \

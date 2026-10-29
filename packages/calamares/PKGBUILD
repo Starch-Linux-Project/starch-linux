@@ -2,7 +2,7 @@
 
 pkgname=calamares-starch
 pkgver=3.3.14
-pkgrel=10
+pkgrel=11
 pkgdesc='Qt 6 system installer framework, reduced for Starch Linux'
 arch=(x86_64)
 url='https://calamares.io/'
@@ -45,7 +45,7 @@ sha256sums=(
     24a957415dc4b98895f8ec6bb3224c74fab70b92685fc3b1e1d57967c563bcd8
     67385cec233320228c72ea51791bb8ed2ac42c684d7e69d860cba88d5a4b63b4
     88f7f9c1085ee2c6b3827e4db048868b36188603ecf68aed890562c24f71c530
-    d7a7a85561e22ca627b4f7951653ad5da995ce7073dc7119547065d0331aaa5b
+    6563abd9b8814fd5a435753729c79dadf4cef0d4a0871049cb63ef04e8981d4c
 )
 
 prepare() {

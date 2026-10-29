@@ -2,6 +2,10 @@
 # Build only Starch's configuration package in the dedicated Arch build root.
 set -euo pipefail
 [[ -d /starch/package/integration && -d /starch/output ]] || exit 2
+# Reused roots may have an unpopulated or stale active trust database.
+pacman-key --init
+pacman-key --populate archlinux
+pacman -Sy --noconfirm --needed archlinux-keyring
 pacman -Syu --noconfirm --needed base-devel
 id builduser >/dev/null 2>&1 || useradd -m builduser
 build_dir=$(mktemp -d /build-starch-lite-XXXXXXXX)

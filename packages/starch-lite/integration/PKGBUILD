@@ -1,7 +1,7 @@
 # Maintainer: Starch Linux project
 pkgname=starch-lite
 pkgver=0.2.2
-pkgrel=8
+pkgrel=9
 pkgdesc='Optional Zen/OpenRC configuration for Starch Linux'
 arch=(x86_64)
 url='https://github.com/SethDoesTech/starch-linux'
