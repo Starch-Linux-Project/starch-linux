@@ -39,10 +39,6 @@
     font-size: 14px;
     font-weight: 600;
 }
-#profileReady {
-    color: palette(highlight);
-    font-weight: 600;
-}
 #profileUnavailable {
     color: #e06c75;
     font-weight: 600;

@@ -70,7 +70,7 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,173 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
 +#include "GlobalStorage.h"
@@ -156,13 +156,14 @@ new file mode 100644
 +        divider->setFrameShape( QFrame::HLine );
 +        optionsLayout->addWidget( divider );
 +        optionsLayout->addWidget( xfce );
-+        auto* status = new QLabel(
-+            m_liteAvailable
-+                ? tr( "READY TO INSTALL  •  Verified profile bundle included" )
-+                : tr( "Unavailable because the Starch Lite package bundle is missing." ), options );
-+        status->setObjectName( m_liteAvailable ? "profileReady" : "profileUnavailable" );
-+        status->setWordWrap( true );
-+        optionsLayout->addWidget( status );
++        if ( !m_liteAvailable )
++        {
++            auto* status = new QLabel(
++                tr( "Unavailable because the Starch Lite package bundle is missing." ), options );
++            status->setObjectName( "profileUnavailable" );
++            status->setWordWrap( true );
++            optionsLayout->addWidget( status );
++        }
 +        profilesLayout->addWidget( options );
 +        profilesLayout->addStretch();
 +

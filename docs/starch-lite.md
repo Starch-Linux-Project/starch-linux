@@ -141,6 +141,9 @@ Starch Linux with the same Evergreen wallpaper. Plasma, KWin, the Plasma keyboar
 and KDE desktop applications are excluded before package resolution. Thunar,
 COSMIC Terminal, Ristretto, Xfce Screenshooter and Task Manager supply their desktop
 roles; GTK portals and the GNOME PolicyKit agent replace KDE's integrations.
+The Xfce applications menu favorites are Web Browser, File Manager and Terminal
+Emulator, with Firefox, Thunar and COSMIC Terminal as their defaults. Mail Reader
+is omitted from the favorites.
 Qt libraries may still be installed for SDDM or applications.
 
 SDDM runs on Xorg with its embedded theme and exposes only the native Xfce
