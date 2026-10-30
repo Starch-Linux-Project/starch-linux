@@ -371,6 +371,9 @@ class LiteProfile(unittest.TestCase):
                 session.parent.mkdir(parents=True)
                 session.write_text('[Desktop Entry]\nExec=/usr/lib/starch-lite/plasma-session\n')
                 gs = Storage(starchLite=True, firmwareType=firmware)
+                stub = root / 'usr/lib/esys-utils/boot/efi/linuxx64.efi.stub'
+                stub.parent.mkdir(parents=True)
+                stub.touch()
                 with patch.object(configure, 'target', return_value=root), \
                      patch.object(configure, 'chroot') as calls, patch.object(lite, 'chroot') as lite_calls:
                     configure.run(gs)
@@ -391,6 +394,16 @@ class LiteProfile(unittest.TestCase):
                 if firmware == 'efi':
                     self.assertIn('init=/usr/bin/openrc-init', (root / 'etc/kernel/cmdline').read_text())
                     self.assertIn('starch-linux-zen.efi', (root / 'etc/mkinitcpio.d/linux-zen.preset').read_text())
+                    self.assertIn('--ukiconfig /etc/kernel/starch-lite-uki.conf',
+                                  (root / 'etc/mkinitcpio.d/linux-zen.preset').read_text())
+                    self.assertIn('Stub=/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub',
+                                  (root / 'etc/kernel/starch-lite-uki.conf').read_text())
+                    self.assertIn('egummiboot', profiles.lite_packages(['linux-lts']))
+                    stub.unlink()
+                    with patch.object(configure, 'target', return_value=root), \
+                         patch.object(configure, 'chroot'), patch.object(lite, 'chroot'):
+                        with self.assertRaisesRegex(RuntimeError, 'Missing Lite EFI stub'):
+                            configure.run(gs)
                 self.assertFalse((root / 'etc/mkinitcpio.d/linux-lts.preset').exists())
 
     def test_limine_efi_selects_profile_kernel(self):

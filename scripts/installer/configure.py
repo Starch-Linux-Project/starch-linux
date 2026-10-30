@@ -30,11 +30,19 @@ def run(gs):
         init = ' init=/usr/bin/openrc-init' if is_lite(gs) else ''
         put(root, 'etc/kernel/cmdline', f'root=UUID={match.group(1)} rw rootfstype=ext4{init}\n')
         (root / 'boot/efi/EFI/Linux').mkdir(parents=True, exist_ok=True)
+        uki_options = ''
+        if is_lite(gs):
+            # Artix ships its stub in esys-utils, outside ukify's upstream default.
+            stub = '/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub'
+            if not (root / stub.lstrip('/')).is_file():
+                raise RuntimeError(f'Missing Lite EFI stub: {stub} (egummiboot package).')
+            put(root, 'etc/kernel/starch-lite-uki.conf', f'[UKI]\nStub={stub}\n')
+            uki_options = ' --ukiconfig /etc/kernel/starch-lite-uki.conf'
         put(root, f'etc/mkinitcpio.d/{kernel}.preset',
             f'ALL_kver="/boot/vmlinuz-{kernel}"\n'
             'PRESETS=(\'default\')\n'
             f'default_uki="/boot/efi/EFI/Linux/starch-{kernel}.efi"\n'
-            'default_options="--splash /usr/share/starch/splash-starch.bmp"\n')
+            f'default_options="--splash /usr/share/starch/splash-starch.bmp{uki_options}"\n')
     elif not is_lite(gs):
         # Select the theme before mkinitcpio embeds it in the BIOS initramfs.
         chroot(root, 'plymouth-set-default-theme', 'starch')
