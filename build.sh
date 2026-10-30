@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+build_started_seconds=$SECONDS
 REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 source "$REPO_ROOT/scripts/build/paths.sh"
 if (( $# != 1 )) || [[ $1 != --check && $1 != --build && $1 != --compile ]]; then
@@ -148,3 +149,8 @@ if [[ $1 == --compile ]]; then
     isos=("$destination")
 fi
 printf 'ISO ready: %s\n' "${isos[0]}"
+build_elapsed_seconds=$((SECONDS - build_started_seconds))
+printf 'Total build time: %dh %02dm %02ds\n' \
+    "$((build_elapsed_seconds / 3600))" \
+    "$((build_elapsed_seconds / 60 % 60))" \
+    "$((build_elapsed_seconds % 60))"

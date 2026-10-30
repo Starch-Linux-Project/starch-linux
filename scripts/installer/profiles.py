@@ -10,7 +10,7 @@ LITE_BUNDLE_PACKAGES = ('starch-lite', 'artix-keyring')
 LITE_REPOSITORY_PACKAGES = (
     'openrc', 'elogind', 'elogind-openrc', 'dbus-openrc',
     'networkmanager-openrc', 'nftables-openrc', 'bluez-openrc', 'sddm-openrc',
-    'syslog-ng-openrc', 'artix-keyring', 'artix-archlinux-support', 'eukify',
+    'syslog-ng-openrc', 'artix-keyring', 'artix-archlinux-support', 'eukify', 'egummiboot',
 )
 
 

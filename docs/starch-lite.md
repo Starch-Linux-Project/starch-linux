@@ -27,6 +27,11 @@ The live ISO carries Lite inputs as installer data; it does not install or start
 OpenRC, import Artix signing trust into its main keyring, or enable Artix repos
 for the live system.
 
+Lite explicitly installs `egummiboot` for its EFI stub. Its UEFI mkinitcpio
+preset passes `/etc/kernel/starch-lite-uki.conf` to ukify, selecting
+`/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub` rather than the upstream systemd
+path. This configuration also applies when kernel updates rebuild the UKI.
+
 ## What the configuration changes
 
 The package list is derived from `manifests/minimal-packages.txt`; it is not a
@@ -172,6 +177,13 @@ the default runlevel, so Ctrl+Alt+F2 provides a recovery login beside the
 graphical session. The installer removes the other getty runlevel entries.
 This disables their text-login
 services, not the kernel's virtual terminals or SDDM's graphical session.
+
+The Lite package disables automatic loading of the PC speaker drivers (`pcspkr`
+and `snd_pcsp`) through `/etc/modprobe.d/90-starch-lite-no-beep.conf` to silence
+shutdown/reboot beeps. This also silences other PC speaker bells, without
+disabling normal desktop audio. This applies to both Plasma and Xfce Lite.
+Existing Lite installations receive the setting when the `starch-lite` package
+is updated; reboot once to unload any already loaded speaker drivers.
 
 Only the Lite package installs `/etc/sysctl.d/99-low-ram.conf`. The installer
 enables OpenRC's `sysctl` service in the boot runlevel, which loads sysctl.d
