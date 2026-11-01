@@ -16,7 +16,7 @@ Summary. A risk acknowledgement reveals the optional profile list. Starch Lite
 is unchecked by default. Every normal build carries its verified bundle and
 enables the option. The selected profile appears in Summary and is passed to
 the Starch job stages. See [Starch Lite](../../docs/starch-lite.md)
-for package sources, build instructions and the release validation gate.
+for package sources, build instructions and validation requirements.
 
 The source release contains pybind11 2.11.1. The package replaces that bundled
 copy at configure time with Arch's `pybind11` build dependency so the Python
@@ -38,8 +38,5 @@ success.
 
 In the live Plasma Wayland session, `/usr/local/bin/starch-install` elevates
 Calamares with `sudo` and runs its Qt interface through XWayland. The launcher
-preserves `DISPLAY` and `XAUTHORITY` and selects the `xcb` Qt backend. Do not
-switch it back to a preserved `XDG_RUNTIME_DIR`: that directory belongs to the
-live user, and current Qt rejects it after the process becomes root, leaving the
-desktop shortcut with no installer window. The Archiso package list therefore
-includes `xorg-xwayland` explicitly.
+preserves `DISPLAY` and `XAUTHORITY` and selects the `xcb` Qt backend. The
+Archiso package list includes `xorg-xwayland` to support this launcher.

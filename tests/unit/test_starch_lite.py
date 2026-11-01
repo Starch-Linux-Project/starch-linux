@@ -54,18 +54,11 @@ class LiteProfile(unittest.TestCase):
             binary = root / 'usr/bin/openrc'
             binary.parent.mkdir(parents=True)
             binary.touch()
-            tty1 = root / 'etc/runlevels/default/agetty.tty1'
-            tty1.parent.mkdir(parents=True)
-            tty1.symlink_to('/etc/init.d/agetty.tty1')
             files = ['/usr/bin/openrc'] + [f'/etc/runlevels/default/agetty.tty{n}' for n in range(1, 7)]
             with patch.object(lite, 'output', return_value='\n'.join(files)):
                 lite.validate_openrc_files(root)
                 binary.unlink()
                 with self.assertRaisesRegex(RuntimeError, 'Missing OpenRC package file: /usr/bin/openrc'):
-                    lite.validate_openrc_files(root)
-                binary.touch()
-                tty1.unlink()
-                with self.assertRaisesRegex(RuntimeError, 'agetty.tty1'):
                     lite.validate_openrc_files(root)
 
     def test_xfce_extension_requires_lite_and_changes_selection_identity(self):
@@ -211,6 +204,59 @@ class LiteProfile(unittest.TestCase):
             self.assertIn('are ready', log.read_text())
             self.assertEqual(events.read_text().splitlines()[:3],
                              ['pipewire', 'pipewire-pulse', 'wireplumber'])
+
+    def test_plasma_wrapper_reports_invalid_runtime(self):
+        wrapper = ROOT / 'packages/starch-lite/integration/root/usr/lib/starch-lite/plasma-session'
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory) / 'runtime'
+            env = os.environ | {'XDG_RUNTIME_DIR': str(runtime)}
+            result = subprocess.run([wrapper], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('does not exist', result.stderr)
+            runtime.mkdir(mode=0o755)
+            runtime.chmod(0o755)
+            result = subprocess.run([wrapper], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('permissions must be 0700', result.stderr)
+            env.pop('XDG_RUNTIME_DIR')
+            result = subprocess.run([wrapper], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('did not set XDG_RUNTIME_DIR', result.stderr)
+
+    def test_audio_shutdown_survives_hung_readiness_probe(self):
+        supervisor = ROOT / 'packages/starch-lite/integration/root/usr/lib/starch-lite/audio-session'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            # Exec sleep so the fake does not leave shell grandchildren behind.
+            for name in ('pipewire', 'pw-cli'):
+                binary = binaries / name
+                binary.write_text('#!/bin/sh\necho $$ > "$TEST_ROOT/' + name + '.pid"\nexec sleep 60\n')
+                binary.chmod(0o755)
+            env = os.environ | {'PATH': f'{binaries}:/usr/bin', 'HOME': directory,
+                                'XDG_RUNTIME_DIR': directory, 'TEST_ROOT': directory}
+            process = subprocess.Popen([supervisor], env=env)
+            try:
+                deadline = time.monotonic() + 5
+                while not (root / 'pw-cli.pid').exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertTrue((root / 'pw-cli.pid').exists())
+                process.terminate()
+                process.wait(timeout=6)
+                self.assertEqual(process.returncode, 0)
+                for name in ('pipewire', 'pw-cli'):
+                    pid = int((root / (name + '.pid')).read_text())
+                    self.assertFalse(Path(f'/proc/{pid}').exists(), name)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+                for pid_file in root.glob('*.pid'):
+                    try:
+                        os.kill(int(pid_file.read_text()), 9)
+                    except ProcessLookupError:
+                        pass
 
     def test_normal_iso_build_always_builds_and_stages_lite(self):
         build = (ROOT / 'build.sh').read_text()
@@ -371,7 +417,7 @@ class LiteProfile(unittest.TestCase):
                 session.parent.mkdir(parents=True)
                 session.write_text('[Desktop Entry]\nExec=/usr/lib/starch-lite/plasma-session\n')
                 gs = Storage(starchLite=True, firmwareType=firmware)
-                stub = root / 'usr/lib/esys-utils/boot/efi/linuxx64.efi.stub'
+                stub = root / 'usr/lib/systemd/boot/efi/linuxx64.efi.stub'
                 stub.parent.mkdir(parents=True)
                 stub.touch()
                 with patch.object(configure, 'target', return_value=root), \
@@ -382,9 +428,12 @@ class LiteProfile(unittest.TestCase):
                 self.assertIn('rc-update', commands)
                 self.assertEqual((root / 'var/lib/sddm/state.conf').read_text(),
                                  '[Last]\nSession=starch-lite.desktop\n')
-                for number in range(2, 7):
+                for number in range(1, 7):
                     lite_calls.assert_any_call(root, 'rc-update', 'del', f'agetty.tty{number}', 'default')
-                lite_calls.assert_any_call(root, 'rc-update', 'add', 'agetty.tty1', 'default')
+                lite_calls.assert_any_call(root, 'rc-update', 'add', 'agetty.tty2', 'boot')
+                self.assertNotIn('agetty.tty1', lite.enabled_services()['default'])
+                self.assertEqual((root / 'etc/init.d/agetty.tty2').readlink(), Path('agetty'))
+                self.assertEqual((root / 'etc/conf.d/agetty.tty2').read_text(), 'term_type=linux\n')
                 self.assertIn('mkinitcpio', commands)
                 hooks = (root / 'etc/mkinitcpio.conf.d/10-starch.conf').read_text()
                 self.assertNotIn('systemd', hooks)
@@ -396,7 +445,7 @@ class LiteProfile(unittest.TestCase):
                     self.assertIn('starch-linux-zen.efi', (root / 'etc/mkinitcpio.d/linux-zen.preset').read_text())
                     self.assertIn('--ukiconfig /etc/kernel/starch-lite-uki.conf',
                                   (root / 'etc/mkinitcpio.d/linux-zen.preset').read_text())
-                    self.assertIn('Stub=/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub',
+                    self.assertIn('Stub=/usr/lib/systemd/boot/efi/linuxx64.efi.stub',
                                   (root / 'etc/kernel/starch-lite-uki.conf').read_text())
                     self.assertIn('egummiboot', profiles.lite_packages(['linux-lts']))
                     stub.unlink()
@@ -405,6 +454,24 @@ class LiteProfile(unittest.TestCase):
                         with self.assertRaisesRegex(RuntimeError, 'Missing Lite EFI stub'):
                             configure.run(gs)
                 self.assertFalse((root / 'etc/mkinitcpio.d/linux-lts.preset').exists())
+
+    def test_lite_efi_stub_supports_current_and_older_artix_layouts(self):
+        current = '/usr/lib/systemd/boot/efi/linuxx64.efi.stub'
+        older = '/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub'
+        for name in (current, older):
+            with self.subTest(path=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                stub = root / name.lstrip('/')
+                stub.parent.mkdir(parents=True)
+                stub.touch()
+                self.assertEqual(lite.efi_stub(root), name)
+                stub.unlink()
+                with self.assertRaisesRegex(RuntimeError, 'Missing Lite EFI stub from egummiboot'):
+                    lite.efi_stub(root)
+                # A directory at the expected location is not an EFI stub.
+                stub.mkdir()
+                with self.assertRaises(RuntimeError):
+                    lite.efi_stub(root)
 
     def test_limine_efi_selects_profile_kernel(self):
         self.assertIn('starch-linux-lts.efi', limine.configuration('abc'))

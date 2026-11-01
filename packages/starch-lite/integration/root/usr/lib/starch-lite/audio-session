@@ -62,22 +62,22 @@ trap shutdown TERM INT HUP
 trap stop_stack EXIT
 
 wait_for_pipewire() {
-    attempts=0
-    while [ "$attempts" -lt 100 ]; do
+    deadline=$(($(date +%s) + 10))
+    # Bound each probe too: a stuck server must not block TERM/cleanup forever.
+    while [ "$(date +%s)" -lt "$deadline" ]; do
         is_running "$pipewire_pid" || return 1
-        pw-cli info 0 >/dev/null 2>&1 && return 0
-        attempts=$((attempts + 1))
+        timeout -k 1s 1s pw-cli info 0 >/dev/null 2>&1 && return 0
         sleep 0.1
     done
     return 1
 }
 
 wait_for_pulse() {
-    attempts=0
-    while [ "$attempts" -lt 100 ]; do
+    deadline=$(($(date +%s) + 10))
+    # Bound each probe too: a stuck server must not block TERM/cleanup forever.
+    while [ "$(date +%s)" -lt "$deadline" ]; do
         is_running "$pulse_pid" || return 1
-        PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native" pactl info >/dev/null 2>&1 && return 0
-        attempts=$((attempts + 1))
+        PULSE_SERVER="unix:$XDG_RUNTIME_DIR/pulse/native" timeout -k 1s 1s pactl info >/dev/null 2>&1 && return 0
         sleep 0.1
     done
     return 1

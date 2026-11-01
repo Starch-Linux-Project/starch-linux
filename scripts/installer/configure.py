@@ -32,10 +32,7 @@ def run(gs):
         (root / 'boot/efi/EFI/Linux').mkdir(parents=True, exist_ok=True)
         uki_options = ''
         if is_lite(gs):
-            # Artix ships its stub in esys-utils, outside ukify's upstream default.
-            stub = '/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub'
-            if not (root / stub.lstrip('/')).is_file():
-                raise RuntimeError(f'Missing Lite EFI stub: {stub} (egummiboot package).')
+            stub = lite.efi_stub(root)
             put(root, 'etc/kernel/starch-lite-uki.conf', f'[UKI]\nStub={stub}\n')
             uki_options = ' --ukiconfig /etc/kernel/starch-lite-uki.conf'
         put(root, f'etc/mkinitcpio.d/{kernel}.preset',

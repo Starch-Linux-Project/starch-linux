@@ -8,18 +8,28 @@ from runtime import chroot, output, put
 
 SERVICES = {
     'sysinit': ('starch-banner', 'udev', 'udev-trigger', 'cgroups'),
-    'boot': ('sysctl', 'esysusers', 'etmpfiles-setup', 'elogind'),
+    'boot': ('sysctl', 'esysusers', 'etmpfiles-setup', 'elogind', 'agetty.tty2'),
     'default': ('dbus', 'NetworkManager', 'nftables', 'bluetoothd', 'starch-zram',
-                'syslog-ng', 'sddm', 'agetty.tty1'),
+                'syslog-ng', 'sddm'),
 }
 
 
 def enabled_services(xfce=False):
-    services = dict(SERVICES)
-    if xfce:
-        services['boot'] = (*services['boot'], 'agetty.tty2')
-        services['default'] = tuple(s for s in services['default'] if s != 'agetty.tty1')
-    return services
+    # Both desktops need a recovery console started before the display manager.
+    return dict(SERVICES)
+
+
+def efi_stub(root):
+    # egummiboot 262 uses the upstream directory; retain older Artix layouts.
+    candidates = (
+        '/usr/lib/systemd/boot/efi/linuxx64.efi.stub',
+        '/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub',
+    )
+    for name in candidates:
+        if (root / name.lstrip('/')).is_file():
+            return name
+    raise RuntimeError('Missing Lite EFI stub from egummiboot; checked: '
+                       + ', '.join(candidates))
 
 
 def configure(root, xfce=False):
@@ -79,11 +89,11 @@ def configure(root, xfce=False):
         'NFTABLES_SAVE="/etc/nftables.conf"\nSAVE_ON_STOP="no"\n')
     put(root, 'etc/conf.d/sddm', 'rc_need="elogind dbus"\n')
     chroot(root, '/usr/lib/starch-lite/configure-pam')
-    # Keep one text console; Xfce reserves tty2 for recovery beside the greeter.
-    console = 2 if xfce else 1
+    # Claim tty2 before SDDM starts; do not race a getty against it on tty1.
+    console = 2
     for number in range(1, 7):
         for link in (root / 'etc/runlevels').glob(f'*/agetty.tty{number}'):
-            if number == console and link.parent.name == ('boot' if xfce else 'default'):
+            if number == console and link.parent.name == 'boot':
                 continue
             chroot(root, 'rc-update', 'del', link.name, link.parent.name)
     for tty in (f'tty{console}',):
@@ -101,9 +111,9 @@ def configure(root, xfce=False):
 def validate_openrc_files(root, xfce=False):
     # OpenRC owns these default runlevel links, but disabling the extra
     # consoles intentionally removes them. Check every other packaged path.
-    console = 2 if xfce else 1
+    # The retained console is moved to boot; validate() checks its new link.
     optional = {f'/etc/runlevels/default/agetty.tty{number}'
-                for number in range(1, 7) if xfce or number != console}
+                for number in range(1, 7)}
     paths = output(['arch-chroot', root, 'pacman', '-Qlq', 'openrc']).splitlines()
     if not paths:
         raise RuntimeError('OpenRC package file list is empty.')
@@ -140,7 +150,7 @@ def validate(root, xfce=False):
         if not re.search(r'^Exec=startxfce4\s*$', desktop, re.M):
             raise RuntimeError('Xfce must use its native session launcher.')
     for number in range(1, 7):
-        if number == (2 if xfce else 1):
+        if number == 2:
             continue
         if list((root / 'etc/runlevels').glob(f'*/agetty.tty{number}')):
             raise RuntimeError(f'Extra Lite console is enabled: tty{number}')

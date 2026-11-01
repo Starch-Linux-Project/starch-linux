@@ -28,9 +28,9 @@ OpenRC, import Artix signing trust into its main keyring, or enable Artix repos
 for the live system.
 
 Lite explicitly installs `egummiboot` for its EFI stub. Its UEFI mkinitcpio
-preset passes `/etc/kernel/starch-lite-uki.conf` to ukify, selecting
-`/usr/lib/esys-utils/boot/efi/linuxx64.efi.stub` rather than the upstream systemd
-path. This configuration also applies when kernel updates rebuild the UKI.
+preset passes `/etc/kernel/starch-lite-uki.conf` to ukify, selecting the installed
+EFI stub from egummiboot. This configuration also applies when kernel updates
+rebuild the UKI.
 
 ## What the configuration changes
 
@@ -171,10 +171,10 @@ authentication, locking, suspend and multi-monitor wallpaper remains required.
 
 ### Lite memory and desktop defaults
 
-Fresh Lite installations enable one text console: `agetty.tty1` for Plasma,
-or `agetty.tty2` in the earlier boot runlevel for Xfce, before SDDM starts in
-the default runlevel, so Ctrl+Alt+F2 provides a recovery login beside the
-graphical session. The installer removes the other getty runlevel entries.
+Fresh Lite installations enable one text console: `agetty.tty2` in the
+boot runlevel for both Plasma and Xfce, before SDDM starts in the default
+runlevel, so Ctrl+Alt+F2 provides a recovery login beside the graphical
+session. This avoids starting a tty1 getty alongside SDDM. The installer removes the other getty runlevel entries.
 This disables their text-login
 services, not the kernel's virtual terminals or SDDM's graphical session.
 

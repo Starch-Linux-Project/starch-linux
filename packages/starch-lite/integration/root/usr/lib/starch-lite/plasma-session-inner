@@ -11,4 +11,8 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
-/usr/bin/startplasma-wayland
+printf '[%s] Starch: launching startplasma-wayland.\n' "$(date --iso-8601=seconds)" >&2
+status=0
+/usr/bin/startplasma-wayland || status=$?
+printf '[%s] Starch: startplasma-wayland exited with status %s.\n' "$(date --iso-8601=seconds)" "$status" >&2
+exit "$status"

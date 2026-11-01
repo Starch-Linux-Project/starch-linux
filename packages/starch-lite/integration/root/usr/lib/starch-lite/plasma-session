@@ -1,11 +1,18 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -eu
+# SDDM captures stderr in wayland-session.log, including failures before Plasma.
+fail() {
+    printf 'Starch Plasma startup: %s\n' "$*" >&2
+    exit 1
+}
 # PAM/elogind must create and own this directory. Never fabricate a session.
-test -n "${XDG_RUNTIME_DIR:-}"
-test -d "$XDG_RUNTIME_DIR"
-test "$(stat -c %u "$XDG_RUNTIME_DIR")" = "$(id -u)"
-test "$(stat -c %a "$XDG_RUNTIME_DIR")" = 700
+[ -n "${XDG_RUNTIME_DIR:-}" ] || fail 'PAM/elogind did not set XDG_RUNTIME_DIR.'
+[ -d "$XDG_RUNTIME_DIR" ] || fail 'The session runtime directory does not exist.'
+[ "$(stat -c %u "$XDG_RUNTIME_DIR")" = "$(id -u)" ] || fail 'Incorrect runtime directory owner.'
+[ "$(stat -c %a "$XDG_RUNTIME_DIR")" = 700 ] || fail 'Runtime directory permissions must be 0700.'
+[ -x /usr/bin/startplasma-wayland ] || fail 'startplasma-wayland is missing.'
+printf '[%s] Starch: starting Plasma session bus (VT %s).\n' "$(date --iso-8601=seconds)" "${XDG_VTNR:-unknown}" >&2
 unset DBUS_SESSION_BUS_ADDRESS DBUS_SESSION_BUS_PID
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=KDE
