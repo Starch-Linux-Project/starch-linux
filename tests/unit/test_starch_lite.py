@@ -3,6 +3,7 @@ import configparser
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -48,6 +49,32 @@ def bundle(root):
 
 
 class LiteProfile(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('pacman-conf'), 'pacman-conf is required')
+    def test_lite_repository_servers_do_not_inherit_environment_mirrors(self):
+        template = (ROOT / 'calamares/pacman-lite.conf').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mirrorlist = root / 'mirrorlist'
+            config = root / 'pacman.conf'
+            # Redirect the environment-dependent include, if reintroduced, to
+            # a fixture instead of reading or modifying the host mirrorlist.
+            config.write_text(template.replace('/etc/pacman.d/mirrorlist', str(mirrorlist)))
+            def query(*args):
+                return subprocess.check_output(
+                    ['pacman-conf', '--config', str(config), *args], text=True).splitlines()
+            for environment in ('live-arch', 'installed-artix'):
+                with self.subTest(environment=environment):
+                    mirrorlist.write_text(f'Server = https://{environment}.invalid/$repo/os/$arch\n')
+                    self.assertEqual(query('--repo-list'), ['system', 'world', 'galaxy', 'extra'])
+                    self.assertEqual(query('-r', 'extra', 'Server'), [
+                        f'https://geo.mirror.pkgbuild.com/extra/os/{os.uname().machine}',
+                        f'https://mirrors.kernel.org/archlinux/extra/os/{os.uname().machine}',
+                    ])
+                    for repo in ('system', 'world', 'galaxy'):
+                        self.assertEqual(query('-r', repo, 'Server'), [
+                            f'https://mirrors.dotsrc.org/artix-linux/repos/{repo}/os/{os.uname().machine}',
+                        ])
+
     def test_openrc_validation_allows_only_intentionally_removed_gettys(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -96,7 +123,8 @@ class LiteProfile(unittest.TestCase):
         for package in ('pipewire', 'wireplumber', 'networkmanager', 'nftables',
                         'sddm', 'firefox', 'linux-zen'):
             self.assertIn(package, xfce)
-        for package in ('cosmic-terminal', 'thunar', 'polkit-gnome', 'xdg-desktop-portal-gtk'):
+        for package in ('cosmic-terminal', 'thunar', 'polkit-gnome', 'xdg-desktop-portal-gtk',
+                        'xdg-user-dirs'):
             self.assertIn(package, xfce)
         self.assertNotIn('konsole', xfce)
         self.assertNotIn('xfce4-terminal', xfce)

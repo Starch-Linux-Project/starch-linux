@@ -35,7 +35,7 @@ XFCE_PACKAGES = (
     'xfce4-notifyd', 'xfce4-pulseaudio-plugin', 'xfce4-whiskermenu-plugin',
     'network-manager-applet', 'pavucontrol', 'xorg-server', 'xorg-xinit',
     'xorg-xrandr', 'adwaita-icon-theme', 'gnome-themes-extra', 'polkit-gnome',
-    'xdg-desktop-portal-gtk', 'ristretto', 'xfce4-screenshooter', 'xfce4-taskmanager',
+    'xdg-desktop-portal-gtk', 'xdg-user-dirs', 'ristretto', 'xfce4-screenshooter', 'xfce4-taskmanager',
 )
 
 # Desktop packages must be removed before dependency resolution, not hidden
