@@ -55,9 +55,14 @@ def kernel_name(gs):
 def lite_packages(packages, xfce=False):
     replacements = {'linux-lts': 'linux-zen', 'dbus-broker-units': 'dbus'}
     result = [replacements.get(p, p) for p in packages if p != 'zram-generator']
+    repository_packages = list(LITE_REPOSITORY_PACKAGES)
     if xfce:
+        replacements = {'sddm': 'lightdm', 'sddm-openrc': 'lightdm-openrc'}
+        result = [replacements.get(p, p) for p in result]
+        repository_packages = [replacements.get(p, p) for p in repository_packages]
+        result.append('lightdm-slick-greeter')
         result = [p for p in result if p not in PLASMA_PACKAGES and p != 'nautilus']
-    return list(dict.fromkeys(result + list(LITE_REPOSITORY_PACKAGES)
+    return list(dict.fromkeys(result + repository_packages
                               + (list(XFCE_PACKAGES) if xfce else [])))
 
 

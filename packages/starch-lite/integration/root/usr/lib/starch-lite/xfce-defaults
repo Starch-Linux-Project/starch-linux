@@ -28,6 +28,8 @@ set_default xsettings /Net/ThemeName string Adwaita-dark
 set_default xsettings /Net/IconThemeName string Adwaita
 set_default xsettings /Gtk/EnableAnimations bool false
 set_default xfwm4 /general/use_compositing bool false
+set_default xfwm4 /general/tile_on_move bool true
+set_default xfwm4 /general/wrap_windows bool false
 set_default xfce4-session /general/SaveOnExit bool false
 set_default xfce4-session /compat/LaunchGNOME bool false
 set_default xfce4-session /compat/LaunchKDE bool false

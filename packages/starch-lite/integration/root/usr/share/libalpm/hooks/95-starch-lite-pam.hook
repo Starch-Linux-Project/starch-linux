@@ -4,6 +4,7 @@ Operation = Upgrade
 Type = Package
 Target = pambase
 Target = sddm
+Target = lightdm
 Target = starch-lite
 
 [Action]

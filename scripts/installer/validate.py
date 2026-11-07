@@ -34,10 +34,11 @@ def run(gs):
     # Includes static units; also rejects disabled or masked activation.
     if not is_lite(gs):
         chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
-    sddm = configparser.ConfigParser(interpolation=None)
-    sddm.read(root / 'etc/sddm.conf')
-    if sddm.get('Autologin', 'User', fallback=None) != '' or sddm.getboolean('Autologin', 'Relogin', fallback=True):
-        raise RuntimeError('Installed SDDM must require login; autologin is live-only.')
+    if not has_xfce(gs):
+        sddm = configparser.ConfigParser(interpolation=None)
+        sddm.read(root / 'etc/sddm.conf')
+        if sddm.get('Autologin', 'User', fallback=None) != '' or sddm.getboolean('Autologin', 'Relogin', fallback=True):
+            raise RuntimeError('Installed SDDM must require login; autologin is live-only.')
     username = gs.value('username')
     users = {p[0]: p for p in (line.split(':') for line in (root / 'etc/passwd').read_text().splitlines())}
     if not isinstance(username, str) or username not in users or users[username][6] != '/usr/bin/fish':
@@ -83,7 +84,7 @@ def run(gs):
         chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
         chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
         chroot(root, 'pacman', '-Qk', 'plasma-keyboard', 'qt6-virtualkeyboard')
-    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'sddm', 'networkmanager')
+    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'lightdm' if has_xfce(gs) else 'sddm', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -137,7 +138,7 @@ def run(gs):
     else:
         forbidden.add('plasma-x11-session')
     if has_xfce(gs):
-        forbidden.update({'plasma-desktop', 'plasma-workspace', 'plasma-x11-session',
+        forbidden.update({'sddm', 'sddm-openrc', 'plasma-desktop', 'plasma-workspace', 'plasma-x11-session',
                           'kwin', 'kwin-x11', 'plasma-keyboard', 'xdg-desktop-portal-kde'})
     if any(line.split()[0] in forbidden for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')

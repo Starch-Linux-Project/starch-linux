@@ -121,11 +121,16 @@ class LiteProfile(unittest.TestCase):
         self.assertTrue(profiles.PLASMA_PACKAGES.isdisjoint(xfce))
         self.assertTrue(profiles.PLASMA_PACKAGES.issubset(plasma))
         for package in ('pipewire', 'wireplumber', 'networkmanager', 'nftables',
-                        'sddm', 'firefox', 'linux-zen'):
+                        'lightdm', 'lightdm-openrc', 'lightdm-slick-greeter', 'firefox', 'linux-zen'):
             self.assertIn(package, xfce)
         for package in ('cosmic-terminal', 'thunar', 'polkit-gnome', 'xdg-desktop-portal-gtk',
                         'xdg-user-dirs'):
             self.assertIn(package, xfce)
+        self.assertNotIn('sddm', xfce)
+        self.assertNotIn('sddm-openrc', xfce)
+        self.assertIn('sddm', plasma)
+        self.assertIn('sddm-openrc', plasma)
+        self.assertNotIn('lightdm', plasma)
         self.assertNotIn('konsole', xfce)
         self.assertNotIn('xfce4-terminal', xfce)
         self.assertNotIn('nautilus', xfce)
@@ -152,21 +157,64 @@ class LiteProfile(unittest.TestCase):
             self.assertTrue((root / 'etc/conf.d/agetty.tty2').is_file())
             calls.assert_any_call(root, 'rc-update', 'add', 'agetty.tty2', 'boot')
             self.assertNotIn('agetty.tty1', lite.enabled_services(True)['default'])
-            self.assertIn('SessionDir=/usr/share/starch-lite/xsessions',
-                          (root / 'etc/sddm.conf.d/30-starch-xfce.conf').read_text())
-            self.assertEqual((root / 'var/lib/sddm/state.conf').read_text(),
-                             '[Last]\nSession=starch-xfce.desktop\n')
+            calls.assert_any_call(root, 'rc-update', 'add', 'lightdm', 'default')
+            self.assertNotIn('sddm', lite.enabled_services(True)['default'])
+            self.assertIn('sddm', lite.enabled_services(False)['default'])
+            self.assertEqual((root / 'etc/conf.d/lightdm').read_text(),
+                             'rc_need="elogind dbus"\n')
+            self.assertFalse((root / 'var/lib/sddm/state.conf').exists())
             self.assertIn('OnlyShowIn=KDE;XFCE;',
                           (root / 'etc/xdg/autostart/starch-audio.desktop').read_text())
-            self.assertFalse((root / 'usr/share/starch-lite/wayland-sessions/starch-lite.desktop').exists())
-            self.assertIn('DisplayServer=x11', (root / 'etc/sddm.conf.d/10-starch.conf').read_text())
             config = configparser.ConfigParser()
-            config.read(root / 'etc/sddm.conf')
-            self.assertEqual(config['Wayland']['SessionDir'],
-                             '/usr/share/starch-lite/no-wayland-sessions')
-            self.assertEqual(config['X11']['SessionDir'], '/usr/share/starch-lite/xsessions')
-            self.assertEqual(config['Autologin']['User'], '')
-            self.assertEqual(list((root / 'usr/share/starch-lite/no-wayland-sessions').iterdir()), [])
+            config.read(root / 'etc/lightdm/lightdm.conf')
+            self.assertEqual(config['LightDM']['sessions-directory'], '/usr/share/starch-lite/xsessions')
+            self.assertEqual(config['Seat:*']['greeter-session'], 'lightdm-slick-greeter')
+            self.assertEqual(config['Seat:*']['user-session'], 'starch-xfce')
+            self.assertEqual(config['Seat:*']['session-wrapper'], '/etc/lightdm/Xsession')
+            self.assertEqual(config['Seat:*']['autologin-user'], '')
+            self.assertFalse(config.getboolean('Seat:*', 'allow-guest'))
+            config.read(root / 'etc/lightdm/slick-greeter.conf')
+            self.assertEqual(config['Greeter']['background'],
+                             '/usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg')
+            self.assertFalse(config.getboolean('Greeter', 'draw-user-backgrounds'))
+
+    def test_lite_package_accepts_either_display_manager_provider(self):
+        pkgbuild = (ROOT / 'packages/starch-lite/integration/PKGBUILD').read_text()
+        self.assertIn('init-displaymanager', pkgbuild)
+        self.assertNotIn('sddm-openrc', pkgbuild)
+
+    def test_xfce_snapping_defaults_preserve_existing_user_settings(self):
+        script = ROOT / 'packages/starch-lite/integration/root/usr/lib/starch-lite/xfce-defaults'
+        for existing in (False, True):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                config = root / '.config/xfce4/xfconf/xfce-perchannel-xml'
+                config.mkdir(parents=True)
+                (config / 'xfce4-panel.xml').touch()
+                if existing:
+                    (config / 'xfwm4.xml').write_text('<channel name="xfwm4"/>')
+                binaries = root / 'bin'
+                binaries.mkdir()
+                query = binaries / 'xfconf-query'
+                query.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$QUERY_LOG"\n')
+                query.chmod(0o755)
+                xrandr = binaries / 'xrandr'
+                xrandr.write_text('#!/bin/sh\nexit 0\n')
+                xrandr.chmod(0o755)
+                log = root / 'queries'
+                env = os.environ | {'HOME': str(root), 'XDG_CONFIG_HOME': str(root / '.config'),
+                                    'XDG_STATE_HOME': str(root / '.local/state'),
+                                    'PATH': f'{binaries}:/usr/bin', 'QUERY_LOG': str(log)}
+                subprocess.run(['sh', script], env=env, check=True)
+                queries = log.read_text()
+                if existing:
+                    self.assertNotIn('-c xfwm4 ', queries)
+                    self.assertEqual((config / 'xfwm4.xml').read_text(), '<channel name="xfwm4"/>')
+                else:
+                    self.assertIn('-c xfwm4 -p /general/tile_on_move -s true', queries)
+                    self.assertIn('-c xfwm4 -p /general/wrap_windows -s false', queries)
+                subprocess.run(['sh', script], env=env, check=True)
+                self.assertEqual(log.read_text(), queries)
 
     def test_xfce_panel_pins_linux_update_utility(self):
         panel = (ROOT / 'packages/starch-lite/integration/root/usr/share/starch-lite/'

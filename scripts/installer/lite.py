@@ -16,7 +16,11 @@ SERVICES = {
 
 def enabled_services(xfce=False):
     # Both desktops need a recovery console started before the display manager.
-    return dict(SERVICES)
+    services = dict(SERVICES)
+    if xfce:
+        services['default'] = tuple('lightdm' if s == 'sddm' else s
+                                    for s in services['default'])
+    return services
 
 
 def efi_stub(root):
@@ -43,53 +47,37 @@ def configure(root, xfce=False):
         raise RuntimeError('Missing console keymap for OpenRC.')
     put(root, 'etc/conf.d/keymaps', f'keymap="{keymap[1]}"\n')
     put(root, 'etc/conf.d/hwclock', 'clock="UTC"\n')
-    # Only offer the session wrapper that establishes a private session bus.
-    sessions = root / 'usr/share/starch-lite/wayland-sessions'
-    sessions.mkdir(parents=True, exist_ok=True)
-    if not xfce:
-        put(root, 'usr/share/starch-lite/wayland-sessions/starch-lite.desktop',
-            (root / 'usr/share/wayland-sessions/starch-lite.desktop').read_text())
-    put(root, 'etc/sddm.conf.d/20-starch-lite.conf',
-        '[Wayland]\nSessionDir=/usr/share/starch-lite/wayland-sessions\n')
     if xfce:
-        # Use the distribution's native startxfce4 session entry. Do not replace
-        # the session bus established by SDDM and Artix's Xsession scripts.
+        # Keep the native Xfce launcher and Artix LightDM session wrapper.
         shutil.copyfile(root / 'usr/share/xsessions/xfce.desktop',
                         root / 'usr/share/starch-lite/xsessions/starch-xfce.desktop')
-        # Override the shared Plasma greeter configuration: Xfce needs no KWin
-        # and SDDM's embedded theme needs no plasma-workspace theme assets.
-        put(root, 'etc/sddm.conf.d/10-starch.conf',
-            '[General]\nDisplayServer=x11\n\n[Theme]\nCurrent=\n')
         shutil.copytree(root / 'usr/share/starch-lite/xfce-config', root / 'etc/xdg',
                         dirs_exist_ok=True)
-        put(root, 'etc/sddm.conf.d/30-starch-xfce.conf',
-            '[X11]\nSessionDir=/usr/share/starch-lite/xsessions\n')
-        # Keep the session restriction in SDDM's highest-priority file too.
-        # DisplayServer=x11 only selects the greeter's backend; it does not
-        # prevent the greeter from offering installed Wayland sessions.
-        (root / 'usr/share/starch-lite/no-wayland-sessions').mkdir(parents=True, exist_ok=True)
-        config = configparser.ConfigParser(interpolation=None)
-        config.optionxform = str
-        config.read(root / 'etc/sddm.conf')
-        for section, key, value in (
-                ('General', 'DisplayServer', 'x11'),
-                ('X11', 'SessionDir', '/usr/share/starch-lite/xsessions'),
-                ('Wayland', 'SessionDir', '/usr/share/starch-lite/no-wayland-sessions')):
-            if not config.has_section(section):
-                config.add_section(section)
-            config.set(section, key, value)
-        with (root / 'etc/sddm.conf').open('w') as stream:
-            config.write(stream)
-    # SDDM selects its initial session from saved state, not General/DefaultSession.
-    session = 'starch-xfce.desktop' if xfce else 'starch-lite.desktop'
-    put(root, 'var/lib/sddm/state.conf', f'[Last]\nSession={session}\n', mode=0o600)
-    chroot(root, 'chown', 'sddm:sddm', '/var/lib/sddm/state.conf')
+        put(root, 'etc/lightdm/lightdm.conf',
+            '[LightDM]\nsessions-directory=/usr/share/starch-lite/xsessions\n'
+            '\n[Seat:*]\ngreeter-session=lightdm-slick-greeter\n'
+            'user-session=starch-xfce\nsession-wrapper=/etc/lightdm/Xsession\n'
+            'autologin-user=\nallow-guest=false\n')
+        put(root, 'etc/lightdm/slick-greeter.conf',
+            '[Greeter]\nbackground=/usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg\n'
+            'draw-user-backgrounds=false\n')
+        for link in (root / 'etc/runlevels').glob('*/sddm'):
+            chroot(root, 'rc-update', 'del', 'sddm', link.parent.name)
+    else:
+        # Only offer the wrapper that establishes a private Plasma session bus.
+        put(root, 'usr/share/starch-lite/wayland-sessions/starch-lite.desktop',
+            (root / 'usr/share/wayland-sessions/starch-lite.desktop').read_text())
+        put(root, 'etc/sddm.conf.d/20-starch-lite.conf',
+            '[Wayland]\nSessionDir=/usr/share/starch-lite/wayland-sessions\n')
+        put(root, 'var/lib/sddm/state.conf', '[Last]\nSession=starch-lite.desktop\n', mode=0o600)
+        chroot(root, 'chown', 'sddm:sddm', '/var/lib/sddm/state.conf')
     # Use Artix's maintained firewall service with Starch's existing rules.
     put(root, 'etc/conf.d/nftables',
         'NFTABLES_SAVE="/etc/nftables.conf"\nSAVE_ON_STOP="no"\n')
-    put(root, 'etc/conf.d/sddm', 'rc_need="elogind dbus"\n')
+    manager = 'lightdm' if xfce else 'sddm'
+    put(root, f'etc/conf.d/{manager}', 'rc_need="elogind dbus"\n')
     chroot(root, '/usr/lib/starch-lite/configure-pam')
-    # Claim tty2 before SDDM starts; do not race a getty against it on tty1.
+    # Claim tty2 before the display manager starts; do not race a getty against it on tty1.
     console = 2
     for number in range(1, 7):
         for link in (root / 'etc/runlevels').glob(f'*/agetty.tty{number}'):
@@ -133,19 +121,20 @@ def validate(root, xfce=False):
                      '/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1'):
             chroot(root, 'test', '-x', path)
         config = configparser.ConfigParser()
-        config.read(root / 'etc/sddm.conf.d/30-starch-xfce.conf')
-        if config.get('X11', 'SessionDir', fallback='') != '/usr/share/starch-lite/xsessions':
-            raise RuntimeError('The optional Xfce session is not enabled in SDDM.')
-        config.read(root / 'etc/sddm.conf.d/10-starch.conf')
-        if config.get('General', 'DisplayServer', fallback='') != 'x11':
-            raise RuntimeError('Xfce requires the X11 login greeter.')
-        config.read(root / 'etc/sddm.conf')
-        if (config.get('Wayland', 'SessionDir', fallback='') !=
-                '/usr/share/starch-lite/no-wayland-sessions' or
-                list((root / 'usr/share/starch-lite/no-wayland-sessions').glob('*.desktop'))):
-            raise RuntimeError('Xfce Lite must not offer Wayland sessions.')
-        if config.get('X11', 'SessionDir', fallback='') != '/usr/share/starch-lite/xsessions':
-            raise RuntimeError('The Xfce X11 session directory is overridden.')
+        config.read(root / 'etc/lightdm/lightdm.conf')
+        for section, key, expected in (
+                ('LightDM', 'sessions-directory', '/usr/share/starch-lite/xsessions'),
+                ('Seat:*', 'greeter-session', 'lightdm-slick-greeter'),
+                ('Seat:*', 'user-session', 'starch-xfce'),
+                ('Seat:*', 'session-wrapper', '/etc/lightdm/Xsession'),
+                ('Seat:*', 'autologin-user', ''),
+                ('Seat:*', 'allow-guest', 'false')):
+            if config.get(section, key, fallback=None) != expected:
+                raise RuntimeError(f'Incorrect Lite Xfce LightDM setting: {key}')
+        if list((root / 'etc/runlevels').glob('*/sddm')):
+            raise RuntimeError('SDDM must not be enabled for Lite Xfce.')
+        chroot(root, 'pacman', '-Qk', 'lightdm', 'lightdm-openrc', 'lightdm-slick-greeter')
+        chroot(root, 'test', '-f', '/usr/share/xgreeters/lightdm-slick-greeter.desktop')
         desktop = (root / 'usr/share/starch-lite/xsessions/starch-xfce.desktop').read_text()
         if not re.search(r'^Exec=startxfce4\s*$', desktop, re.M):
             raise RuntimeError('Xfce must use its native session launcher.')
@@ -170,7 +159,7 @@ def validate(root, xfce=False):
             if not link.is_symlink():
                 raise RuntimeError(f'OpenRC service is not enabled: {service}')
             chroot(root, 'test', '-x', f'/etc/runlevels/{runlevel}/{service}')
-    for name in ('system-login', 'sddm-greeter'):
+    for name in ('system-login', 'lightdm-greeter' if xfce else 'sddm-greeter'):
         pam = (root / 'etc/pam.d' / name).read_text()
         if 'session required pam_elogind.so' not in pam or 'pam_systemd.so' in pam:
             raise RuntimeError(f'Incorrect Lite PAM session configuration: {name}')

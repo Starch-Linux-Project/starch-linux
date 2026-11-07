@@ -3,7 +3,8 @@
 from pathlib import Path
 import re
 
-for name in ('system-login', 'sddm-greeter'):
+greeter = 'sddm-greeter' if Path('/etc/pam.d/sddm-greeter').exists() else 'lightdm-greeter'
+for name in ('system-login', greeter):
     path = Path('/etc/pam.d') / name
     content = path.read_text()
     if not re.search(r'\bpam_(?:systemd|elogind)\.so\b', content):
