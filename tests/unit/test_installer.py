@@ -82,8 +82,8 @@ class InstallerSafety(unittest.TestCase):
 
     def test_installed_sddm_uses_live_wayland_compositor(self):
         class GS:
-            def value(self, _):
-                return 'bios'
+            def value(self, name):
+                return {'firmwareType': 'bios'}.get(name)
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -203,8 +203,8 @@ class InstallerSafety(unittest.TestCase):
 
     def test_failed_sync_stops_before_selection_is_saved(self):
         class GS:
-            def value(self, _):
-                return {'install': 'erase', 'swap': 'none'}
+            def value(self, name):
+                return {'partitionChoices': {'install': 'erase', 'swap': 'none'}}.get(name)
         with tempfile.TemporaryDirectory() as d:
             state = Path(d)
             with patch.object(preflight, 'STATE', state), patch.object(preflight, 'selected_disk', return_value='/dev/vda'), \
@@ -245,8 +245,8 @@ class InstallerSafety(unittest.TestCase):
 
     def test_bios_splash_is_configured_before_initramfs_generation(self):
         class GS:
-            def value(self, _):
-                return 'bios'
+            def value(self, name):
+                return {'firmwareType': 'bios'}.get(name)
 
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
@@ -307,8 +307,8 @@ class InstallerSafety(unittest.TestCase):
 
     def test_uefi_configuration_builds_a_uki_on_the_esp(self):
         class GS:
-            def value(self, _):
-                return 'efi'
+            def value(self, name):
+                return {'firmwareType': 'efi'}.get(name)
 
         uuid = '12345678-1234-1234-1234-123456789abc'
         with tempfile.TemporaryDirectory() as d:
@@ -372,12 +372,13 @@ class InstallerSafety(unittest.TestCase):
                          'etc/skel/.config/powerdevilrc'):
                 self.assertFalse((overlay / path).exists(), path)
             lock_config = configparser.ConfigParser()
-            lock_config.read(overlay / 'etc/xdg/kscreenlockerrc')
+            plasma = overlay.parent / 'desktop-overlays/plasma'
+            lock_config.read(plasma / 'etc/xdg/kscreenlockerrc')
             self.assertNotIn('Daemon', lock_config)
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
             self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())
-            self.assertEqual((overlay / 'etc/skel/.config/kwinrc').read_text(),
+            self.assertEqual((plasma / 'etc/skel/.config/kwinrc').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/skel/.config/kwinrc').read_text())
             theme = overlay / 'usr/share/plymouth/themes/starch'
             self.assertEqual((theme / 'logo.png').read_bytes(),

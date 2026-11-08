@@ -225,7 +225,7 @@ class LiteProfile(unittest.TestCase):
     def test_audio_supervisor_starts_services_in_dependency_order(self):
         package_root = ROOT / 'packages/starch-lite/integration/root'
         desktop = configparser.ConfigParser(interpolation=None)
-        desktop.read(package_root / 'etc/xdg/autostart/starch-audio.desktop')
+        desktop.read(package_root / 'usr/share/starch-lite/legacy-desktop-config/autostart/starch-audio.desktop')
         entry = desktop['Desktop Entry']
         self.assertEqual(entry['OnlyShowIn'], 'KDE;')
         self.assertEqual(entry['TryExec'], entry['Exec'])
@@ -348,7 +348,7 @@ class LiteProfile(unittest.TestCase):
         patch_text = (ROOT / 'packages/calamares/0005-starch-advanced-page.patch').read_text()
         self.assertIn('Starch Lite (Special thanks to the Artix Linux team!)', patch_text)
         self.assertIn(
-            "Alternate config with a tuned zen kernel, openrc and a tuned KDE if you don't select xfce. ",
+            'Desktop selection does not change the kernel or init system.',
             patch_text)
         self.assertIn('RAM usage can be as low as 700MB on Lite with xfce.', patch_text)
         self.assertNotIn('experimental', patch_text.lower())
@@ -466,7 +466,8 @@ class LiteProfile(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             bundle(root / 'lite')
-            (root / 'selection.json').write_text(json.dumps(dict(packages=['base'], lite_bundle_sha256='old')))
+            (root / 'selection.json').write_text(json.dumps(dict(
+                packages=['base'], profile='lite', desktop='plasma', lite_bundle_sha256='old')))
             with patch.object(bootstrap, 'target', return_value=root), \
                  patch.object(bootstrap, 'DATA', root), patch.object(bootstrap, 'STATE', root), \
                  patch.object(bootstrap, 'command') as command:
@@ -489,9 +490,12 @@ class LiteProfile(unittest.TestCase):
                 runlevel.mkdir(parents=True)
                 for number in range(1, 7):
                     (runlevel / f'agetty.tty{number}').symlink_to(f'/etc/init.d/agetty.tty{number}')
-                session = root / 'usr/share/wayland-sessions/starch-lite.desktop'
+                session = root / 'usr/share/starch-lite/legacy-wayland-sessions/starch-lite.desktop'
                 session.parent.mkdir(parents=True)
                 session.write_text('[Desktop Entry]\nExec=/usr/lib/starch-lite/plasma-session\n')
+                import shutil
+                shutil.copytree(ROOT / 'packages/starch-lite/integration/root/usr/share/starch-lite/legacy-desktop-config',
+                                root / 'usr/share/starch-lite/legacy-desktop-config')
                 gs = Storage(starchLite=True, firmwareType=firmware)
                 stub = root / 'usr/lib/systemd/boot/efi/linuxx64.efi.stub'
                 stub.parent.mkdir(parents=True)

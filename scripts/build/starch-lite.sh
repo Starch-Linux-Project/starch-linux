@@ -42,6 +42,8 @@ fi
 }
 unshare --map-auto --map-root-user -- bash -eu -c '
     root=$1
+    # Reusing the chroot must not restore files removed from maintained inputs.
+    rm -rf -- "$root/starch/package"
     install -d "$root/starch/package" "$root/starch/output"
     cp -a "$2/." "$root/starch/package/"
     cp "$3" "$root/starch/build.sh"

@@ -16,6 +16,9 @@ In the installer's **Advanced** page, acknowledge the warning and select
 | Boot and storage | Limine, ext4, and compressed zram swap |
 | Package sources | Artix system, world, and galaxy; Arch extra |
 
+For the additional COSMIC checkbox and its validation status, see [COSMIC](cosmic.md).
+COSMIC and Xfce are mutually exclusive; neither changes the selected init/kernel.
+
 To install Xfce, also select **Use Xfce instead of KDE Plasma (X11)**.
 This replaces Plasma for a fresh installation. Xfce uses Thunar as its file
 manager and has desktop animations, compositing, and session restoration off

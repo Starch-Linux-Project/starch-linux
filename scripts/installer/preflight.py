@@ -3,12 +3,14 @@ import hashlib
 from pathlib import Path
 import tempfile
 from graphics import select_packages
-from profiles import is_lite, has_xfce, lite_packages, pacman_config, profile_name, verified_bundle
+from profiles import (is_lite, has_cosmic, desktop_name, selected_packages, validate_selection, check_cosmic_closure,
+                      pacman_config, profile_name, verified_bundle)
 from repositories import prepare_lite_keyring
 from runtime import DATA, STATE, check_disk_tree, command, deactivate_disk, microcode, output, read_manifest, selected_disk
 
 
 def run(gs):
+    validate_selection(gs)
     lite_archives = []
     if is_lite(gs):
         if gs.value('starchAdvancedAcknowledged') is not True:
@@ -28,8 +30,7 @@ def run(gs):
     STATE.mkdir(mode=0o700, exist_ok=True)
     (STATE / 'selection.json').unlink(missing_ok=True)
     packages = read_manifest(DATA / 'minimal-packages.txt') + microcode(Path('/proc/cpuinfo').read_text())
-    if is_lite(gs):
-        packages = lite_packages(packages, xfce=has_xfce(gs))
+    packages = selected_packages(packages, gs)
     # BIOS cannot display the EFI stub's embedded splash.
     if not is_lite(gs) and gs.value('firmwareType') != 'efi' and 'plymouth' not in packages:
         packages.append('plymouth')
@@ -49,7 +50,12 @@ def run(gs):
     gpu_packages = (select_packages(args, STATE, kernel='linux-zen') if is_lite(gs)
                     else select_packages(args, STATE))
     packages = list(dict.fromkeys(packages + gpu_packages))
-    command([*args, '-Sp', '--print-format', '%n %v', '--', *packages], timeout=120)
+    if has_cosmic(gs):
+        resolved = output([*args, '-Sp', '--print-format', '%r %n %v', '--', *packages])
+        check_cosmic_closure(resolved, lite=is_lite(gs))
+        (STATE / 'cosmic-resolved-packages.txt').write_text(resolved + '\n')
+    else:
+        command([*args, '-Sp', '--print-format', '%n %v', '--', *packages], timeout=120)
     if lite_archives:
         # Resolve the local integration package against Artix and Arch extra.
         # The bundle has already been authenticated against its ISO manifest.
@@ -64,6 +70,7 @@ def run(gs):
     # Record only the resolved selection; no credentials or full global storage.
     (STATE / 'selection.json').write_text(json.dumps({
         'disk': disk, 'packages': packages, 'profile': profile_name(gs),
+        'desktop': desktop_name(gs),
         'repositories_sha256': hashlib.sha256(config_path.read_bytes()).hexdigest()
         if lite_archives else None,
         'lite_bundle_sha256': hashlib.sha256((DATA / 'lite/bundle.json').read_bytes()).hexdigest()

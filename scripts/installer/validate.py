@@ -1,8 +1,9 @@
 import configparser
 import re
 from runtime import chroot, output, preserve_logs, read_manifest, target
-from profiles import is_lite, has_xfce, kernel_name
+from profiles import is_lite, has_xfce, has_cosmic, kernel_name, COSMIC_FORBIDDEN, COSMIC_PACKAGES
 import lite
+import cosmic
 
 
 def validate_machine_id(root):
@@ -21,7 +22,7 @@ def run(gs):
     validate_machine_id(root)
     chroot(root, 'cmp', '/etc/machine-id', '/var/lib/dbus/machine-id')
     if is_lite(gs):
-        lite.validate(root, xfce=has_xfce(gs))
+        lite.validate(root, xfce=has_xfce(gs), cosmic=has_cosmic(gs))
         chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-openrc')
     else:
         chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
@@ -34,7 +35,7 @@ def run(gs):
     # Includes static units; also rejects disabled or masked activation.
     if not is_lite(gs):
         chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
-    if not has_xfce(gs):
+    if not has_xfce(gs) and not has_cosmic(gs):
         sddm = configparser.ConfigParser(interpolation=None)
         sddm.read(root / 'etc/sddm.conf')
         if sddm.get('Autologin', 'User', fallback=None) != '' or sddm.getboolean('Autologin', 'Relogin', fallback=True):
@@ -48,7 +49,9 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
-    if not has_xfce(gs):
+    if has_cosmic(gs):
+        cosmic.validate(root, home, lite=is_lite(gs))
+    elif not has_xfce(gs):
         if not (home / '.config/kdeglobals').is_file() or not (home / '.config/kwinrc').is_file():
             raise RuntimeError('Desktop or virtual-keyboard defaults were not applied to the installed user.')
         kwinrc = configparser.ConfigParser(interpolation=None)
@@ -59,6 +62,7 @@ def run(gs):
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
         raise RuntimeError('Installed account password state is incorrect.')
     desktop_file = ('usr/share/starch-lite/xsessions/starch-xfce.desktop' if has_xfce(gs)
+                    else 'usr/share/wayland-sessions/cosmic.desktop' if has_cosmic(gs)
                     else 'usr/share/wayland-sessions/plasma.desktop')
     for name in (f'boot/vmlinuz-{kernel}', 'etc/locale.conf', 'etc/hostname', desktop_file):
         if not (root / name).is_file() or not (root / name).stat().st_size:
@@ -78,13 +82,13 @@ def run(gs):
     chroot(root, 'visudo', '-c')
     if has_xfce(gs):
         chroot(root, 'pacman', '-Qk', 'xfce4-session', 'xfwm4', 'thunar', 'xorg-server', 'polkit-gnome')
-    else:
+    elif not has_cosmic(gs):
         chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
         chroot(root, 'test', '-x', '/usr/bin/plasma-keyboard')
         chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
         chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
         chroot(root, 'pacman', '-Qk', 'plasma-keyboard', 'qt6-virtualkeyboard')
-    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'lightdm' if has_xfce(gs) else 'sddm', 'networkmanager')
+    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'greetd' if has_cosmic(gs) else 'lightdm' if has_xfce(gs) else 'sddm', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -93,7 +97,7 @@ def run(gs):
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
-    for service in (() if is_lite(gs) else ('sddm.service', 'NetworkManager.service', 'nftables.service', 'bluetooth.service')):
+    for service in (() if is_lite(gs) else (('cosmic-greeter.service' if has_cosmic(gs) else 'sddm.service'), 'NetworkManager.service', 'nftables.service', 'bluetooth.service')):
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):
@@ -140,6 +144,15 @@ def run(gs):
     if has_xfce(gs):
         forbidden.update({'sddm', 'sddm-openrc', 'plasma-desktop', 'plasma-workspace', 'plasma-x11-session',
                           'kwin', 'kwin-x11', 'plasma-keyboard', 'xdg-desktop-portal-kde'})
+    if has_cosmic(gs):
+        forbidden.update(COSMIC_FORBIDDEN)
+        if is_lite(gs):
+            forbidden.add('systemd-libs')
+        resolved = (root / 'var/log/starch-installer/resolved-packages.txt').read_text()
+        audited = {name: version for repo, name, version in (line.split() for line in resolved.splitlines())}
+        installed = dict(line.split() for line in versions.splitlines())
+        if any(installed.get(name) != audited.get(name) for name in COSMIC_PACKAGES):
+            raise RuntimeError('COSMIC packages changed after preflight; review defaults and session compatibility.')
     if any(line.split()[0] in forbidden for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')
     preserve_logs(root)

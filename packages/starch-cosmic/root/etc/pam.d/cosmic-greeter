@@ -1,0 +1,6 @@
+#%PAM-1.0
+# COSMIC's per-user lock screen calls this PAM service, independently of greetd.
+auth requisite pam_nologin.so
+auth required pam_succeed_if.so user != root quiet_success
+auth include system-auth
+account include system-auth

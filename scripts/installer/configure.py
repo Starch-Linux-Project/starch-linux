@@ -1,8 +1,9 @@
 import re
 
 from runtime import chroot, put, target
-from profiles import is_lite, has_xfce, kernel_name
+from profiles import is_lite, has_xfce, has_cosmic, kernel_name
 import lite
+import cosmic
 
 
 def run(gs):
@@ -10,12 +11,12 @@ def run(gs):
     kernel = kernel_name(gs)
     # This file has higher precedence than sddm.conf.d and Calamares writes it.
     # Autologin is reserved for the disposable live environment.
-    if not has_xfce(gs):
+    if not has_xfce(gs) and not has_cosmic(gs):
         put(root, 'etc/sddm.conf', '[Autologin]\nUser=\nSession=\nRelogin=false\n')
     put(root, 'etc/os-release', 'NAME="Starch Linux"\nPRETTY_NAME="Starch Linux 1.2"\nID=starch\nID_LIKE=arch\nVERSION="1.2"\nVERSION_ID="1.2"\nVERSION_CODENAME=evergreen\nBUILD_ID=rolling\nANSI_COLOR="38;2;23;147;209"\n')
     put(root, 'etc/issue', 'Starch Linux \\r (\\l)\n\n')
     put(root, 'etc/issue.net', 'Starch Linux\n')
-    if not has_xfce(gs):
+    if not has_xfce(gs) and not has_cosmic(gs):
         put(root, 'etc/sddm.conf.d/10-starch.conf', '[General]\nDisplayServer=wayland\n\n[Wayland]\n# Plasma Keyboard is KWin\'s input method. KWin keeps its panel dormant until input context calls for it.\nCompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1 --inputmethod plasma-keyboard\n\n[X11]\nSessionDir=/usr/share/starch/no-x11-sessions\n\n[Theme]\nCurrent=breeze\n')
     if is_lite(gs):
         put(root, 'etc/mkinitcpio.conf.d/10-starch.conf',
@@ -49,8 +50,14 @@ def run(gs):
     chroot(root, 'passwd', '--lock', 'root')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
     if is_lite(gs):
-        lite.configure(root, xfce=has_xfce(gs))
+        lite.configure(root, xfce=has_xfce(gs), cosmic=has_cosmic(gs))
     else:
-        chroot(root, 'systemctl', 'enable', 'NetworkManager.service', 'nftables.service', 'sddm.service', 'bluetooth.service')
+        services = ['NetworkManager.service', 'nftables.service']
+        if not has_cosmic(gs):
+            services.append('sddm.service')
+        services.append('bluetooth.service')
+        chroot(root, 'systemctl', 'enable', *services)
         chroot(root, 'systemctl', 'set-default', 'graphical.target')
+    if has_cosmic(gs):
+        cosmic.configure(root, lite=is_lite(gs))
     chroot(root, 'mkinitcpio', '-P')

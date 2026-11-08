@@ -134,7 +134,9 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
                      'usr/share/plymouth/themes/starch',
                      'usr/share/plasma/look-and-feel/org.starch.desktop'):
         source = fs / relative
-        dest = overlay / relative
+        desktop_only = relative.startswith(('etc/skel/.config/', 'etc/xdg/kscreenlocker',
+                                            'usr/share/sddm/', 'usr/share/plasma/'))
+        dest = (data / 'desktop-overlays/plasma' if desktop_only else overlay) / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
         if source.is_dir():
             shutil.copytree(source, dest, dirs_exist_ok=True)
@@ -142,6 +144,10 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
             shutil.copyfile(source, dest)
     shutil.copyfile(SOURCE / 'calamares/branding/starch/starchlinux.png',
                     overlay / 'usr/share/plymouth/themes/starch/logo.png')
+    for desktop in ('cosmic', 'cosmic-lite'):
+        source = SOURCE / 'packages/starch-cosmic' / ('root' if desktop == 'cosmic' else 'lite-root')
+        shutil.copytree(source, data / 'desktop-overlays' / desktop, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     fish = overlay / 'etc/fish/conf.d/10-starch.fish'
     fish.parent.mkdir(parents=True, exist_ok=True)
     fish.write_text('if status is-interactive; and test (id -u) -ne 0\n    fastfetch\nend\n')

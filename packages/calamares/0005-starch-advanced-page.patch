@@ -26,7 +26,7 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.h b/src/modules/starcha
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.h
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,40 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#ifndef STARCH_ADVANCEDVIEWSTEP_H
 +#define STARCH_ADVANCEDVIEWSTEP_H
@@ -63,6 +63,7 @@ new file mode 100644
 +    QPointer< QCheckBox > m_acknowledge;
 +    QPointer< QCheckBox > m_lite;
 +    QPointer< QCheckBox > m_xfce;
++    QPointer< QCheckBox > m_cosmic;
 +};
 +CALAMARES_PLUGIN_FACTORY_DECLARATION( AdvancedViewStepFactory )
 +#endif
@@ -70,7 +71,7 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,192 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
 +#include "GlobalStorage.h"
@@ -141,21 +142,32 @@ new file mode 100644
 +        // Public enablement requires verified package inputs and fresh-install testing.
 +        lite->setEnabled( m_liteAvailable );
 +        optionsLayout->addWidget( lite );
-+        auto* xfce = new QCheckBox( tr( "Use Xfce instead of KDE Plasma (X11)" ), options );
++        auto* xfce = new QCheckBox( tr( "Use Xfce instead of KDE Plasma (Lite only, X11)" ), options );
 +        m_xfce = xfce;
 +        xfce->setObjectName( "starchLiteXfce" );
 +        xfce->setEnabled( false );
-+
-+        connect( xfce, &QCheckBox::toggled, this, [this]() { saveSelection(); } );
++        auto* cosmic = new QCheckBox( tr( "Use COSMIC instead of KDE Plasma (Wayland)" ), options );
++        m_cosmic = cosmic;
++        cosmic->setObjectName( "starchCosmic" );
++        connect( xfce, &QCheckBox::toggled, this, [this]( bool checked ) {
++            if ( checked ) m_cosmic->setChecked( false );
++            saveSelection();
++        } );
++        connect( cosmic, &QCheckBox::toggled, this, [this]( bool checked ) {
++            if ( checked ) m_xfce->setChecked( false );
++            saveSelection();
++        } );
 +        auto* description = new QLabel(
-+            tr( "Alternate config with a tuned zen kernel, openrc and a tuned KDE if you don't select xfce. "
++            tr( "Alternate config with Linux Zen and OpenRC. Desktop selection does not change the kernel or init system. "
 +                "RAM usage can be as low as 700MB on Lite with xfce." ), options );
 +        description->setWordWrap( true );
 +        optionsLayout->addWidget( description );
 +        auto* divider = new QFrame( options );
 +        divider->setFrameShape( QFrame::HLine );
 +        optionsLayout->addWidget( divider );
++        optionsLayout->addWidget( new QLabel( tr( "Installed desktop" ), options ) );
 +        optionsLayout->addWidget( xfce );
++        optionsLayout->addWidget( cosmic );
 +        if ( !m_liteAvailable )
 +        {
 +            auto* status = new QLabel(
@@ -197,7 +209,7 @@ new file mode 100644
 +            blur->setEnabled( !checked );
 +            profiles->setEnabled( checked );
 +            gate->setVisible( !checked );
-+            if ( !checked ) m_lite->setChecked( false );
++            if ( !checked ) { m_lite->setChecked( false ); m_cosmic->setChecked( false ); }
 +            saveSelection();
 +            if ( checked ) m_lite->setFocus( Qt::OtherFocusReason );
 +        } );
@@ -232,17 +244,25 @@ new file mode 100644
 +    storage->insert( "starchAdvancedAcknowledged", acknowledged );
 +    const bool lite = acknowledged && m_liteAvailable && m_lite && m_lite->isChecked();
 +    storage->insert( "starchLite", lite );
-+    storage->insert( "starchLiteXfce", lite && m_xfce && m_xfce->isChecked() );
++    const bool xfce = lite && m_xfce && m_xfce->isChecked();
++    const bool cosmic = acknowledged && m_cosmic && m_cosmic->isChecked();
++    const QString desktop = cosmic ? "cosmic" : ( xfce ? "xfce" : "plasma" );
++    storage->insert( "starchDesktop", desktop );
++    storage->insert( "starchLiteXfce", xfce );
 +}
 +
 +QString
 +AdvancedViewStep::prettyStatus() const
 +{
++    if ( m_acknowledge && m_acknowledge->isChecked() && m_cosmic && m_cosmic->isChecked() )
++        return m_liteAvailable && m_lite && m_lite->isChecked()
++            ? tr( "Starch Lite: Linux Zen, OpenRC and COSMIC (Wayland)." )
++            : tr( "Standard Starch Linux: Linux LTS, systemd and COSMIC (Wayland)." );
 +    if ( m_liteAvailable && m_lite && m_lite->isChecked() && m_xfce && m_xfce->isChecked() )
 +        return tr( "Starch Lite: Linux Zen, OpenRC and Xfce (X11), without KDE Plasma." );
 +    if ( m_liteAvailable && m_lite && m_lite->isChecked() )
 +        return tr( "Starch Lite: Linux Zen, OpenRC, Limine and KDE Plasma." );
-+    return tr( "Standard Starch Linux: Linux LTS and systemd." );
++    return tr( "Standard Starch Linux: Linux LTS, systemd and KDE Plasma." );
 +}
 diff --git a/src/modules/starchadvanced/starchadvanced.conf b/src/modules/starchadvanced/starchadvanced.conf
 new file mode 100644

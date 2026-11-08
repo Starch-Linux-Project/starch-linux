@@ -5,6 +5,8 @@ import re
 
 greeter = 'sddm-greeter' if Path('/etc/pam.d/sddm-greeter').exists() else 'lightdm-greeter'
 for name in ('system-login', greeter):
+    if name == greeter and not (Path('/etc/pam.d') / name).exists():
+        continue
     path = Path('/etc/pam.d') / name
     content = path.read_text()
     if not re.search(r'\bpam_(?:systemd|elogind)\.so\b', content):

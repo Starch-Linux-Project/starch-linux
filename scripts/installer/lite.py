@@ -14,9 +14,11 @@ SERVICES = {
 }
 
 
-def enabled_services(xfce=False):
+def enabled_services(xfce=False, cosmic=False):
     # Both desktops need a recovery console started before the display manager.
     services = dict(SERVICES)
+    if cosmic:
+        services['default'] = tuple(s for s in services['default'] if s != 'sddm')
     if xfce:
         services['default'] = tuple('lightdm' if s == 'sddm' else s
                                     for s in services['default'])
@@ -36,7 +38,14 @@ def efi_stub(root):
                        + ', '.join(candidates))
 
 
-def configure(root, xfce=False):
+def configure(root, xfce=False, cosmic=False):
+    if xfce and cosmic:
+        raise RuntimeError("Xfce and COSMIC are mutually exclusive.")
+    if not cosmic:
+        shutil.copytree(root / "usr/share/starch-lite/legacy-desktop-config",
+                        root / "etc/xdg", dirs_exist_ok=True)
+        shutil.copytree(root / "usr/share/starch-lite/legacy-wayland-sessions",
+                        root / "usr/share/wayland-sessions", dirs_exist_ok=True)
     # Calamares has already written the hostname and keyboard/locale files.
     hostname = (root / 'etc/hostname').read_text().strip()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', hostname):
@@ -63,7 +72,7 @@ def configure(root, xfce=False):
             'draw-user-backgrounds=false\n')
         for link in (root / 'etc/runlevels').glob('*/sddm'):
             chroot(root, 'rc-update', 'del', 'sddm', link.parent.name)
-    else:
+    elif not cosmic:
         # Only offer the wrapper that establishes a private Plasma session bus.
         put(root, 'usr/share/starch-lite/wayland-sessions/starch-lite.desktop',
             (root / 'usr/share/wayland-sessions/starch-lite.desktop').read_text())
@@ -74,7 +83,7 @@ def configure(root, xfce=False):
     # Use Artix's maintained firewall service with Starch's existing rules.
     put(root, 'etc/conf.d/nftables',
         'NFTABLES_SAVE="/etc/nftables.conf"\nSAVE_ON_STOP="no"\n')
-    manager = 'lightdm' if xfce else 'sddm'
+    manager = 'greetd' if cosmic else 'lightdm' if xfce else 'sddm'
     put(root, f'etc/conf.d/{manager}', 'rc_need="elogind dbus"\n')
     chroot(root, '/usr/lib/starch-lite/configure-pam')
     # Claim tty2 before the display manager starts; do not race a getty against it on tty1.
@@ -91,7 +100,7 @@ def configure(root, xfce=False):
         conf = root / f'etc/conf.d/agetty.{tty}'
         if not conf.exists():
             shutil.copyfile(root / 'etc/conf.d/agetty', conf)
-    for runlevel, services in enabled_services(xfce).items():
+    for runlevel, services in enabled_services(xfce, cosmic).items():
         for service in services:
             chroot(root, 'rc-update', 'add', service, runlevel)
 
@@ -113,7 +122,9 @@ def validate_openrc_files(root, xfce=False):
             raise RuntimeError(f'Missing OpenRC package file: {name}')
 
 
-def validate(root, xfce=False):
+def validate(root, xfce=False, cosmic=False):
+    if xfce and cosmic:
+        raise RuntimeError("Xfce and COSMIC are mutually exclusive.")
     if xfce:
         for path in ('/usr/bin/startxfce4', '/usr/bin/Xorg', '/usr/bin/Thunar',
                      '/usr/bin/xfce4-screensaver', '/usr/bin/nm-applet',
@@ -145,25 +156,27 @@ def validate(root, xfce=False):
             raise RuntimeError(f'Extra Lite console is enabled: tty{number}')
     for name in ('usr/bin/openrc-init', 'usr/bin/openrc-run', 'usr/lib/elogind/elogind',
                  'usr/lib/security/pam_elogind.so', 'usr/bin/dbus-daemon',
-                 'usr/lib/starch-lite/plasma-session', 'usr/lib/starch-lite/plasma-session-inner',
                  'usr/lib/starch-lite/audio-session', 'usr/bin/pipewire',
                  'usr/bin/pipewire-pulse', 'usr/bin/wireplumber', 'usr/bin/pw-cli',
                  'usr/bin/pactl', 'usr/bin/flock',
-                 'etc/xdg/autostart/starch-audio.desktop',
                  'etc/sysctl.d/99-low-ram.conf'):
         if not (root / name).is_file():
             raise RuntimeError(f'Missing Lite component: {name}')
-    for runlevel, services in enabled_services(xfce).items():
+    for runlevel, services in enabled_services(xfce, cosmic).items():
         for service in services:
             link = root / 'etc/runlevels' / runlevel / service
             if not link.is_symlink():
                 raise RuntimeError(f'OpenRC service is not enabled: {service}')
             chroot(root, 'test', '-x', f'/etc/runlevels/{runlevel}/{service}')
-    for name in ('system-login', 'lightdm-greeter' if xfce else 'sddm-greeter'):
+    for name in (('system-login',) if cosmic else ('system-login', 'lightdm-greeter' if xfce else 'sddm-greeter')):
         pam = (root / 'etc/pam.d' / name).read_text()
         if 'session required pam_elogind.so' not in pam or 'pam_systemd.so' in pam:
             raise RuntimeError(f'Incorrect Lite PAM session configuration: {name}')
-    if not xfce:
+    if not xfce and not cosmic:
+        for name in ("usr/lib/starch-lite/plasma-session", "usr/lib/starch-lite/plasma-session-inner",
+                     "etc/xdg/autostart/starch-audio.desktop"):
+            if not (root / name).is_file():
+                raise RuntimeError(f"Missing Lite Plasma component: {name}")
         config = configparser.ConfigParser()
         config.read(root / 'etc/xdg/startkderc')
         if config.getboolean('General', 'systemdBoot', fallback=True):
