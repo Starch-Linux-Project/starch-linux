@@ -157,6 +157,8 @@ pipewire
 pipewire-pulse
 wireplumber
 kscreen
+qt6-sensors
+iio-sensor-proxy
 noto-fonts
 ttf-dejavu
 spice-vdagent

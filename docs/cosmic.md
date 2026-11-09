@@ -42,6 +42,12 @@ configuration; the generic `greetd` service is not also enabled. SDDM and
 LightDM are excluded from COSMIC package resolution. The greeter's root
 helper daemon runs separately and supplies user information over system D-Bus.
 
+Lite explicitly installs `greetd-openrc` to satisfy the integration package's
+`init-displaymanager` dependency. Without it, installing the local `starch-lite`
+archive selects `gdm-dinit` by default and fails because `dbus-dinit` conflicts
+with `dbus-openrc`. Preflight requires this provider on Lite; its generic
+`greetd` service stays disabled in favor of Starch's COSMIC services.
+
 Preflight audits pacman's full `%r %n %v` transaction. It rejects Plasma/KWin,
 Xfce sessions, a second selected display manager or COSMIC Store. Lite also
 rejects systemd runtime packages and requires Artix builds of the critical

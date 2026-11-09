@@ -61,6 +61,11 @@ def selected_packages(packages, gs):
     if has_cosmic(gs):
         result = [p for p in result if p not in PLASMA_PACKAGES | {'nautilus', 'blueman', 'sddm', 'sddm-openrc'}]
         result.extend(COSMIC_PACKAGES)
+        if is_lite(gs):
+            # Satisfy starch-lite's init-displaymanager dependency before its
+            # local archive is installed; pacman's default provider uses dinit.
+            # cosmic.configure disables the generic service in favor of ours.
+            result.append('greetd-openrc')
     return list(dict.fromkeys(result))
 
 
@@ -70,7 +75,7 @@ XFCE_PACKAGES = (
     'xfce4-power-manager', 'xfce4-screensaver',
     'xfce4-notifyd', 'xfce4-pulseaudio-plugin', 'xfce4-whiskermenu-plugin',
     'network-manager-applet', 'pavucontrol', 'xorg-server', 'xorg-xinit',
-    'xorg-xrandr', 'adwaita-icon-theme', 'gnome-themes-extra', 'polkit-gnome',
+    'xorg-xrandr', 'xorg-xinput', 'python-gobject', 'libnotify', 'adwaita-icon-theme', 'gnome-themes-extra', 'polkit-gnome',
     'xdg-desktop-portal-gtk', 'xdg-user-dirs', 'ristretto', 'xfce4-screenshooter', 'xfce4-taskmanager',
 )
 
@@ -78,7 +83,7 @@ XFCE_PACKAGES = (
 # behind the login screen after installation.
 PLASMA_PACKAGES = {
     'plasma-desktop', 'plasma-workspace', 'plasma-keyboard', 'qt6-virtualkeyboard',
-    'breeze', 'xdg-desktop-portal-kde', 'plasma-nm', 'plasma-pa', 'kscreen',
+    'breeze', 'xdg-desktop-portal-kde', 'plasma-nm', 'plasma-pa', 'kscreen', 'qt6-sensors',
     'polkit-kde-agent', 'plasma-systemmonitor', 'spectacle', 'gwenview',
     'kwallet', 'kwallet-pam', 'kwalletmanager',
 }
@@ -96,7 +101,7 @@ COSMIC_PACKAGES = (
     'xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xorg-xwayland',
     'xorg-server', 'xorg-xauth', 'polkit-gnome', 'gnome-keyring', 'xdg-user-dirs',
     # COSMIC replaces Blueman's UI, but configure still enables bluetooth.service.
-    'bluez', 'greetd',
+    'bluez', 'greetd', 'python-gobject', 'libnotify',
 )
 COSMIC_FORBIDDEN = PLASMA_PACKAGES | {
     'kwin', 'kwin-x11', 'plasma-x11-session', 'xfce4-session', 'xfwm4',
@@ -114,7 +119,8 @@ def check_cosmic_closure(resolved, lite=False):
     unexpected = forbidden & by_name.keys()
     if unexpected:
         raise RuntimeError('Incompatible COSMIC dependencies: ' + ', '.join(sorted(unexpected)))
-    missing = set(COSMIC_PACKAGES) - by_name.keys()
+    required = set(COSMIC_PACKAGES) | ({'greetd-openrc'} if lite else set())
+    missing = required - by_name.keys()
     if missing:
         raise RuntimeError('Missing COSMIC packages: ' + ', '.join(sorted(missing)))
     # These components define the defaults and non-systemd startup we inspected.

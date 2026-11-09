@@ -40,6 +40,8 @@ class CosmicTarget(unittest.TestCase):
             shutil.copytree(ROOT / 'archiso/profile', profile, symlinks=True)
             stage.stage(profile)
             data = profile / 'airootfs/usr/share/starch-installer'
+            self.assertEqual((data / 'target-overlay/usr/lib/starch/rotation.py').read_bytes(),
+                             (ROOT / 'packages/starch-rotation/root/usr/lib/starch/rotation.py').read_bytes())
             self.assertEqual((profile / 'airootfs/usr/lib/starch-installer/cosmic.py').read_bytes(),
                              (ROOT / 'scripts/installer/cosmic.py').read_bytes())
             self.assertFalse(list((data / 'desktop-overlays').rglob('__pycache__')))
@@ -230,6 +232,11 @@ class CosmicTarget(unittest.TestCase):
             self.assertFalse((root / 'etc/sddm.conf.d/20-starch-lite.conf').exists())
             self.assertFalse(any('sddm' in c.args for c in calls.call_args_list))
             calls.assert_any_call(root, 'rc-update', 'add', 'elogind', 'boot')
+            calls.assert_any_call(root, 'rc-update', 'add', 'iio-sensor-proxy', 'default')
+            sensor_service = root / 'etc/init.d/iio-sensor-proxy'
+            self.assertEqual(sensor_service.stat().st_mode & 0o777, 0o755)
+            self.assertIn('need dbus', sensor_service.read_text())
+            self.assertIn('/usr/lib/iio-sensor-proxy', sensor_service.read_text())
             self.assertFalse(any('systemctl' in call.args for call in calls.call_args_list))
 
     def test_legacy_lite_defaults_are_byte_for_byte_preserved(self):

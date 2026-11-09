@@ -27,6 +27,8 @@ pipewire
 pipewire-pulse
 wireplumber
 kscreen
+qt6-sensors
+iio-sensor-proxy
 polkit-kde-agent
 noto-fonts
 ttf-dejavu

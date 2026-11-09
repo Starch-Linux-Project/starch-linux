@@ -72,6 +72,7 @@ class DesktopSelection(unittest.TestCase):
             self.assertNotIn('sddm', selected)
             self.assertNotIn('sddm-openrc', selected)
             self.assertIn('greetd', selected)
+            self.assertEqual('greetd-openrc' in selected, lite)
             self.assertIn('linux-zen' if lite else 'linux-lts', selected)
             self.assertEqual('openrc' in selected, lite)
             self.assertEqual('elogind' in selected, lite)
@@ -88,11 +89,16 @@ class DesktopSelection(unittest.TestCase):
                 self.assertNotIn('blueman', selected)
                 resolved = '\n'.join('galaxy ' + name + ' 1:1.11.0-1'
                                      for name in profiles.COSMIC_PACKAGES if name != 'bluez')
+                if lite:
+                    resolved += '\nworld greetd-openrc 20231222-1'
                 with self.assertRaisesRegex(RuntimeError, 'Missing COSMIC packages: bluez'):
                     profiles.check_cosmic_closure(resolved, lite=lite)
 
     def test_dependency_closure_rejects_other_desktops_systemd_and_wrong_origins(self):
         resolved = '\n'.join('galaxy ' + name + ' 1:1.11.0-1' for name in profiles.COSMIC_PACKAGES)
+        with self.assertRaisesRegex(RuntimeError, 'Missing COSMIC packages: greetd-openrc'):
+            profiles.check_cosmic_closure(resolved, lite=True)
+        resolved += '\nworld greetd-openrc 20231222-1'
         profiles.check_cosmic_closure(resolved, lite=True)
         for bad in ('galaxy kwin 6.8-1', 'galaxy xfce4-session 4.20-1',
                     'extra systemd 258-1', 'extra systemd-libs 258-1'):

@@ -2,7 +2,7 @@
 
 Starch Linux is an Arch-based Linux distribution built to make the benefits of Linux more accessible. It combines Arch's rolling package base with a configured desktop, a graphical installer, and its own desktop defaults and branding.
 
-This is written for the 1.2 release
+This is written for the 1.3 release
 
 ## System components
 

@@ -13,7 +13,7 @@ def run(gs):
     # Autologin is reserved for the disposable live environment.
     if not has_xfce(gs) and not has_cosmic(gs):
         put(root, 'etc/sddm.conf', '[Autologin]\nUser=\nSession=\nRelogin=false\n')
-    put(root, 'etc/os-release', 'NAME="Starch Linux"\nPRETTY_NAME="Starch Linux 1.2"\nID=starch\nID_LIKE=arch\nVERSION="1.2"\nVERSION_ID="1.2"\nVERSION_CODENAME=evergreen\nBUILD_ID=rolling\nANSI_COLOR="38;2;23;147;209"\n')
+    put(root, 'etc/os-release', 'NAME="Starch Linux"\nPRETTY_NAME="Starch Linux 1.3"\nID=starch\nID_LIKE=arch\nVERSION="1.3"\nVERSION_ID="1.3"\nVERSION_CODENAME=evergreen\nBUILD_ID=rolling\nANSI_COLOR="38;2;23;147;209"\n')
     put(root, 'etc/issue', 'Starch Linux \\r (\\l)\n\n')
     put(root, 'etc/issue.net', 'Starch Linux\n')
     if not has_xfce(gs) and not has_cosmic(gs):

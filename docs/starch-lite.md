@@ -1,6 +1,6 @@
 # Starch Lite
 
-Starch Lite is an optional configuration of Starch Linux 1.2 with the same
+Starch Lite is an optional configuration of Starch Linux 1.3 with the same
 identity and branding. It is included in normal builds; fresh boot and desktop
 validation remain required.
 
