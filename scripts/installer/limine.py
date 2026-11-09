@@ -1,4 +1,5 @@
 """Install Limine as the sole installed-system bootloader."""
+from pathlib import Path
 import json
 import re
 import shutil
@@ -27,6 +28,23 @@ def configuration(_uuid, kernel='linux-lts'):
     )
 
 
+def install_maintenance(root, mode):
+    updater = root / 'usr/local/lib/starch/update-limine'
+    updater.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(Path(__file__).with_name('limine_update.py'), updater)
+    updater.chmod(0o755)
+    chroot(root, '/usr/local/lib/starch/update-limine', '--setup', mode)
+    hooks = root / 'etc/pacman.d/hooks'
+    hooks.mkdir(parents=True, exist_ok=True)
+    trigger = '[Trigger]\nOperation = Install\nOperation = Upgrade\nType = Package\nTarget = limine\n\n'
+    for name, when, args in (('05-starch-limine-check', 'PreTransaction', ' --check'),
+                             ('99-starch-limine', 'PostTransaction', '')):
+        (hooks / (name + '.hook')).write_text(
+            trigger + '[Action]\nDescription = Checking/deploying the Starch Limine loader...\n'
+            + f'When = {when}\nExec = /usr/local/lib/starch/update-limine{args}\n'
+            + ('AbortOnFail\n' if when == 'PreTransaction' else ''))
+
+
 def run(gs):
     root = target(gs)
     kernel = kernel_name(gs)
@@ -46,19 +64,7 @@ def run(gs):
         (esp / 'EFI/Limine/limine.conf').write_text(config)
         (esp / 'EFI/BOOT/limine.conf').write_text(config)
 
-        updater = root / 'usr/local/lib/starch/update-limine'
-        updater.parent.mkdir(parents=True, exist_ok=True)
-        updater.write_text(
-            '#!/bin/sh\nset -eu\n'
-            'install -Dm644 /usr/share/limine/BOOTX64.EFI /boot/efi/EFI/Limine/BOOTX64.EFI\n'
-            'install -Dm644 /usr/share/limine/BOOTX64.EFI /boot/efi/EFI/BOOT/BOOTX64.EFI\n')
-        updater.chmod(0o755)
-        hook = root / 'etc/pacman.d/hooks/99-starch-limine.hook'
-        hook.parent.mkdir(parents=True, exist_ok=True)
-        hook.write_text(
-            '[Trigger]\nOperation = Install\nOperation = Upgrade\nType = Package\nTarget = limine\n\n'
-            '[Action]\nDescription = Updating the Starch Limine EFI loader...\nWhen = PostTransaction\n'
-            'Exec = /usr/local/lib/starch/update-limine\n')
+        install_maintenance(root, 'efi')
 
         partitions = gs.value('partitions') or []
         esps = [p for p in partitions if p.get('mountPoint') == '/boot/efi']
@@ -89,3 +95,5 @@ def run(gs):
         f'    module_path: boot():/initramfs-{kernel}.img\n'
         f'    cmdline: root=UUID={uuid} rw rootfstype=ext4 {options}\n')
     chroot(root, 'limine', 'bios-install', disk, str(bios[0]['partn']))
+
+    install_maintenance(root, 'bios')

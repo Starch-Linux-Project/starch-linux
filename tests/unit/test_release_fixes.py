@@ -152,3 +152,96 @@ class GraphicsSelection(unittest.TestCase):
                     else:
                         with self.assertRaisesRegex(RuntimeError, 'out of sync'):
                             graphics.select_packages(['pacman'], Path(directory))
+
+
+class LimineUpdateSafety(unittest.TestCase):
+    def validate_fixture(self, mode, failure=None):
+        import limine_update as update
+        mount = '/boot/efi' if mode == 'efi' else '/boot'
+        fs = {'target': mount, 'fstype': 'vfat', 'uuid': 'BOOT',
+              'maj:min': '8:2', 'options': 'rw,relatime'}
+        boot = {'path': '/dev/renamed2', 'type': 'part', 'uuid': 'BOOT', 'maj:min': '8:2', 'ro': False}
+        bios = {'path': '/dev/renamed1', 'type': 'part', 'parttype': update.BIOS_GUID,
+                'partuuid': 'BIOS', 'partn': 1, 'size': 1048576, 'ro': False, 'mountpoints': [None]}
+        disk = {'path': '/dev/renamed', 'type': 'disk', 'pttype': 'gpt', 'ptuuid': 'DISK',
+                'ro': False, 'children': [bios, boot]}
+        if failure == 'wrong-fs':
+            fs['fstype'] = 'ext4'
+        if failure == 'wrong-uuid':
+            fs['uuid'] = 'OTHER'
+        if failure == 'wrong-device':
+            fs['maj:min'] = '8:9'
+        if failure == 'readonly':
+            fs['options'] = 'ro'
+        if failure == 'ambiguous-bios':
+            disk['children'].append(dict(bios, partuuid='SECOND'))
+        if failure == 'mapped':
+            boot['type'] = 'crypt'
+        if failure == 'duplicate-uuid':
+            disk['children'].append(dict(boot, path='/dev/other'))
+        def query(*args):
+            if args[0] == 'findmnt':
+                if failure == 'unmounted':
+                    raise update.subprocess.CalledProcessError(1, args)
+                return json.dumps({'filesystems': [fs]})
+            return json.dumps({'blockdevices': [disk]})
+        expected = {'mode': mode, 'uuid': 'BOOT'}
+        if mode == 'bios':
+            expected.update(partuuid='BIOS', ptuuid='DISK')
+        if failure == 'changed-identity':
+            expected['uuid'] = 'OLD'
+        with patch.object(update.Path, 'read_text', return_value=f'UUID=BOOT {mount} vfat defaults 0 2\n'), \
+             patch.object(update.Path, 'is_file', return_value=failure != 'missing-source'), \
+             patch.object(update.Path, 'is_dir', return_value=True), \
+             patch.object(update.Path, 'is_symlink', return_value=False), \
+             patch.object(update, 'query', side_effect=query), \
+             patch.object(update.os, 'access', return_value=True), \
+             patch.object(update.shutil, 'which', return_value='/usr/bin/limine'), \
+             patch.object(update.os, 'stat') as stat, \
+             patch.object(update.tempfile, 'mkstemp') as stage, \
+             patch.object(update.os, 'replace') as replace, \
+             patch.object(update.subprocess, 'run') as disk_write:
+            stat.return_value.st_dev = 1
+            if failure:
+                with self.assertRaises((RuntimeError, update.subprocess.SubprocessError)):
+                    update.deploy(expected)
+            else:
+                update.deploy(expected, check=True)
+            stage.assert_not_called()
+            replace.assert_not_called()
+            disk_write.assert_not_called()
+
+    def test_mounted_boot_targets_and_validation_failures_do_not_write(self):
+        for mode in ('efi', 'bios'):
+            for failure in (None, 'unmounted', 'wrong-fs', 'wrong-uuid', 'wrong-device',
+                            'readonly', 'mapped', 'duplicate-uuid', 'changed-identity', 'missing-source'):
+                with self.subTest(mode=mode, failure=failure):
+                    self.validate_fixture(mode, failure)
+        self.validate_fixture('bios', 'ambiguous-bios')
+
+    def test_deployment_stages_loaders_and_preserves_menu(self):
+        import limine_update as update
+        for mode in ('efi', 'bios'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / 'source'
+                source.write_bytes(b'new loader')
+                menu = root / 'limine.conf'
+                menu.write_text('custom menu and kernel options')
+                destinations = [root / 'loader1', root / 'loader2'] if mode == 'efi' else [root / 'limine-bios.sys']
+                for dest in destinations:
+                    dest.write_bytes(b'old loader')
+                expected = {'mode': mode}
+                result = (expected, {'path': '/dev/verified'}, {'partn': 7} if mode == 'bios' else None,
+                          source, destinations)
+                with patch.object(update, 'validate', return_value=result) as validate, \
+                     patch.object(update.subprocess, 'run') as install, patch.object(update.os, 'sync'):
+                    update.deploy(expected)
+                self.assertEqual(validate.call_count, 2)
+                if mode == 'bios':
+                    install.assert_called_once_with(['limine', 'bios-install', '/dev/verified', '7'], check=True)
+                else:
+                    install.assert_not_called()
+                self.assertTrue(all(d.read_bytes() == b'new loader' for d in destinations))
+                self.assertEqual(menu.read_text(), 'custom menu and kernel options')
+                self.assertFalse(list(root.glob('.starch-limine-*')))

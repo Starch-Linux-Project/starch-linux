@@ -101,6 +101,10 @@ def stage_lite(fs, input_dir):
 
 def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
     fs = profile / 'airootfs'
+    # Keep live and installed banners sourced from the maintained root artwork.
+    artwork = fs / 'usr/share/starch/fastfetch-text'
+    artwork.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(SOURCE / 'fastfetch-text', artwork)
     config = fs / 'etc/calamares'
     shutil.copytree(SOURCE / 'calamares', config, dirs_exist_ok=True)
     stage_lite(fs, lite_input)

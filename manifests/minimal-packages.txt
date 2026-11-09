@@ -5,6 +5,7 @@ linux-firmware
 sof-firmware
 mkinitcpio
 limine
+python
 efibootmgr
 dosfstools
 e2fsprogs

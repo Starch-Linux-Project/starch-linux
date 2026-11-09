@@ -347,9 +347,28 @@ class InstallerSafety(unittest.TestCase):
             self.assertIn('EFI/Linux/starch-linux-lts.efi',
                           (root / 'boot/efi/EFI/Limine/limine.conf').read_text())
             self.assertTrue((root / 'etc/pacman.d/hooks/99-starch-limine.hook').is_file())
-            chroot.assert_called_once_with(
+            chroot.assert_any_call(
                 root, 'efibootmgr', '--create', '--disk', '/dev/vda', '--part', '1',
                 '--label', 'Starch Linux', '--loader', r'\EFI\Limine\BOOTX64.EFI')
+
+    def test_maintenance_hooks_for_both_firmware_modes(self):
+        for mode in ('efi', 'bios'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                with patch.object(limine, 'chroot') as chroot:
+                    limine.install_maintenance(root, mode)
+                chroot.assert_called_once_with(root, '/usr/local/lib/starch/update-limine', '--setup', mode)
+                script = root / 'usr/local/lib/starch/update-limine'
+                self.assertEqual(script.read_bytes(), (ROOT / 'scripts/installer/limine_update.py').read_bytes())
+                self.assertEqual(script.stat().st_mode & 0o777, 0o755)
+                hooks = root / 'etc/pacman.d/hooks'
+                pre = (hooks / '05-starch-limine-check.hook').read_text()
+                self.assertIn('When = PreTransaction', pre)
+                self.assertIn('AbortOnFail', pre)
+                self.assertIn('update-limine --check', pre)
+                post = (hooks / '99-starch-limine.hook').read_text()
+                self.assertIn('When = PostTransaction', post)
+                self.assertNotIn('AbortOnFail', post)
 
     def test_staged_overlay_excludes_live_credentials_and_services(self):
         spec = importlib.util.spec_from_file_location('stage', ROOT / 'scripts/build/stage-installer.py')
