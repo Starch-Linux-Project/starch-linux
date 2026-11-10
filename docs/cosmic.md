@@ -110,10 +110,10 @@ Plasma login command is selected on a COSMIC target.
 
 COSMIC seeds only 13 keys: dark mode without automatic switching, readable
 Starch blue (`#4DA9DF`), Evergreen, floating windows, a small centered native
-dock, its Firefox/Files/Terminal/LUU favorites, and launcher/workspaces plus
+dock with a native app launcher button and Firefox/Files/Terminal/Settings/LUU favorites, and launcher/workspaces plus
 normal status controls in the top panel. The clock and other unmodified
 behavior use upstream defaults. Favorites use installed desktop-entry stems:
-`firefox`, `com.system76.CosmicFiles`, `com.system76.CosmicTerm`, and
+`firefox`, `com.system76.CosmicFiles`, `com.system76.CosmicTerm`, `com.system76.CosmicSettings`, and
 `linux-update-utility`. Validation checks the corresponding `.desktop` files
 and Evergreen image. Fonts, scaling and window controls remain upstream.
 

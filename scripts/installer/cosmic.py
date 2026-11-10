@@ -7,7 +7,8 @@ from runtime import chroot, put
 
 WALLPAPER = 'usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg'
 SESSION_DIR = 'usr/share/wayland-sessions'
-PINS = ('firefox', 'com.system76.CosmicFiles', 'com.system76.CosmicTerm', 'linux-update-utility')
+PINS = ('firefox', 'com.system76.CosmicFiles', 'com.system76.CosmicTerm',
+        'com.system76.CosmicSettings', 'linux-update-utility')
 GREETER_COMMAND = '/usr/lib/starch-cosmic/greeter'
 
 
