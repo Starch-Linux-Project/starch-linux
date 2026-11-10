@@ -12,6 +12,13 @@ GREETER_COMMAND = '/usr/lib/starch-cosmic/greeter'
 
 
 def configure(root, lite=False):
+    # Package hooks can defer sysusers/tmpfiles setup in a chroot. The greeter
+    # account and its owned directories must exist before validation and login,
+    # rather than waiting for OpenRC's first-boot setup services.
+    chroot(root, 'esysusers' if lite else 'systemd-sysusers',
+           '/usr/lib/sysusers.d/cosmic-greeter.conf')
+    chroot(root, 'etmpfiles' if lite else 'systemd-tmpfiles', '--create',
+           '/usr/lib/tmpfiles.d/cosmic-greeter.conf')
     source = root / SESSION_DIR / 'cosmic.desktop'
     session = source.read_text()
     if not re.search(r'^Exec=/usr/bin/start-cosmic\s*$', session, re.M):
@@ -86,9 +93,14 @@ def validate(root, home, lite=False):
     pam = (root / 'etc/pam.d/starch-greetd').read_text()
     if 'session include system-local-login' not in pam or 'pam_gnome_keyring.so auto_start' not in pam:
         raise RuntimeError('COSMIC login PAM session/keyring integration is missing.')
-    # Root's executable check alone does not catch inaccessible parent dirs.
-    chroot(root, 'runuser', '-u', 'cosmic-greeter', '--', 'test', '-x', GREETER_COMMAND)
-    chroot(root, 'runuser', '-u', 'cosmic-greeter', '--', 'sh', '-n', GREETER_COMMAND)
+    # Check access as the greeter without opening a PAM login session inside
+    # the offline target. Lite requires pam_elogind in system-login (also used
+    # by runuser), but the target's elogind is not running during installation.
+    # Root's executable check alone would miss inaccessible parent directories.
+    credentials = ('setpriv', '--reuid=cosmic-greeter', '--regid=cosmic-greeter',
+                   '--init-groups', '--')
+    chroot(root, *credentials, 'test', '-x', GREETER_COMMAND)
+    chroot(root, *credentials, 'sh', '-n', GREETER_COMMAND)
     sessions = {p.name for p in (root / SESSION_DIR).glob('*.desktop')}
     if sessions != {'cosmic.desktop'} or list((root / 'usr/share/xsessions').glob('*.desktop')):
         raise RuntimeError('COSMIC Greeter must offer only the installed COSMIC session.')

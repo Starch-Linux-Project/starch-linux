@@ -86,6 +86,14 @@ class CosmicTarget(unittest.TestCase):
                      patch.object(cosmic, 'chroot') as calls:
                     configure.run(Storage(starchLite=is_lite, starchDesktop='cosmic', firmwareType='bios'))
                 config = tomllib.loads((root / 'etc/greetd/cosmic-greeter.toml').read_text())
+                # Account creation must finish before tmpfiles resolves its
+                # ownership and before the greeter services are enabled.
+                self.assertEqual(calls.call_args_list[0].args,
+                                 (root, 'esysusers' if is_lite else 'systemd-sysusers',
+                                  '/usr/lib/sysusers.d/cosmic-greeter.conf'))
+                self.assertEqual(calls.call_args_list[1].args,
+                                 (root, 'etmpfiles' if is_lite else 'systemd-tmpfiles',
+                                  '--create', '/usr/lib/tmpfiles.d/cosmic-greeter.conf'))
                 self.assertEqual(config['default_session']['command'], cosmic.GREETER_COMMAND)
                 self.assertEqual(config['default_session']['user'], 'cosmic-greeter')
                 self.assertEqual(config['general']['service'], 'starch-greetd')
@@ -152,9 +160,14 @@ class CosmicTarget(unittest.TestCase):
                         link = root / 'etc/runlevels/default' / name
                         link.parent.mkdir(parents=True, exist_ok=True)
                         link.symlink_to('/etc/init.d/' + name)
-                with patch.object(cosmic, 'chroot'):
+                with patch.object(cosmic, 'chroot') as calls:
                     cosmic.configure(root, lite=is_lite)
                     cosmic.validate(root, home, lite=is_lite)
+                    credentials = ('setpriv', '--reuid=cosmic-greeter',
+                                   '--regid=cosmic-greeter', '--init-groups', '--')
+                    calls.assert_any_call(root, *credentials, 'test', '-x', cosmic.GREETER_COMMAND)
+                    calls.assert_any_call(root, *credentials, 'sh', '-n', cosmic.GREETER_COMMAND)
+                    self.assertFalse(any('runuser' in c.args for c in calls.call_args_list))
                     foreign = root / cosmic.SESSION_DIR / 'starch-lite.desktop'
                     foreign.write_text('[Desktop Entry]\nExec=startplasma-wayland\n')
                     with self.assertRaisesRegex(RuntimeError, 'only the installed COSMIC session'):

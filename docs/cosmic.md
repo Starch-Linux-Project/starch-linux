@@ -42,6 +42,12 @@ configuration; the generic `greetd` service is not also enabled. SDDM and
 LightDM are excluded from COSMIC package resolution. The greeter's root
 helper daemon runs separately and supplies user information over system D-Bus.
 
+Target configuration explicitly applies the packaged `cosmic-greeter`
+sysusers definition, then its tmpfiles definition, before enabling the greeter.
+Lite uses `esysusers`/`etmpfiles`; Standard uses the systemd equivalents.
+This ensures validation can switch to the greeter account during installation,
+without depending on package hooks or first-boot account creation.
+
 Lite explicitly installs `greetd-openrc` to satisfy the integration package's
 `init-displaymanager` dependency. Without it, installing the local `starch-lite`
 archive selects `gdm-dinit` by default and fails because `dbus-dinit` conflicts
@@ -123,7 +129,9 @@ COSMIC Greeter runs inside `cosmic-comp` on tty1 with a private D-Bus
 session. Its launch script preserves errors in the service log. The launcher
 and its parent directory explicitly use mode 0755, including under Calamares's
 restrictive umask. Validation checks executable access and shell readability
-as the unprivileged `cosmic-greeter` account rather than only as root. It discovers
+as the unprivileged `cosmic-greeter` account using `setpriv`, without opening a
+PAM session in the offline target. `runuser` invokes Lite's required elogind
+PAM session setup, which cannot succeed before the target is booted. It discovers
 `cosmic.desktop` in the standard `/usr/share/wayland-sessions` directory.
 Standard retains the packaged `start-cosmic` launcher; Lite rewrites that entry
 to its session supervisor so selecting COSMIC actually starts the Lite session.

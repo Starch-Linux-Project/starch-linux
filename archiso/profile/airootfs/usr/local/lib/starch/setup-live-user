@@ -9,5 +9,6 @@ fi
 usermod --shell /usr/bin/fish liveuser
 printf '%s\n' 'liveuser:password' | chpasswd
 usermod --shell /usr/bin/bash root
-[[ -d /home/liveuser ]]
-install -D -m 0755 -o liveuser -g liveuser /usr/share/applications/starch-install.desktop /home/liveuser/Desktop/starch-install.desktop
+live_home=$(getent passwd liveuser | cut -d: -f6)
+[[ $live_home == /* && -d $live_home ]]
+install -D -m 0755 -o liveuser -g liveuser /usr/share/applications/starch-install.desktop "$live_home/Desktop/starch-install.desktop"
