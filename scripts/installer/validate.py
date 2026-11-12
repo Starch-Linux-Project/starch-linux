@@ -28,15 +28,14 @@ def run(gs):
         chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
     chroot(root, 'getent', 'passwd', 'dbus')
     chroot(root, 'getent', 'group', 'dbus')
-    chroot(root, 'test', '-x', '/usr/lib/iio-sensor-proxy')
-    chroot(root, 'test', '-x', '/usr/bin/monitor-sensor')
-    chroot(root, 'pacman', '-Qk', 'iio-sensor-proxy')
-    if has_cosmic(gs) or has_xfce(gs):
-        chroot(root, 'python3', '-c', 'from gi.repository import Gio, GLib')
-        for path in ('/usr/lib/starch/rotation.py', '/etc/xdg/autostart/starch-rotation.desktop'):
-            chroot(root, 'test', '-r', path)
-    if has_xfce(gs):
-        chroot(root, 'test', '-x', '/usr/bin/xinput')
+    if not is_lite(gs):
+        chroot(root, 'test', '-x', '/usr/lib/iio-sensor-proxy')
+        chroot(root, 'test', '-x', '/usr/bin/monitor-sensor')
+        chroot(root, 'pacman', '-Qk', 'iio-sensor-proxy')
+        if has_cosmic(gs):
+            chroot(root, 'python3', '-c', 'from gi.repository import Gio, GLib')
+            for path in ('/usr/lib/starch/rotation.py', '/etc/xdg/autostart/starch-rotation.desktop'):
+                chroot(root, 'test', '-r', path)
     for path in (() if is_lite(gs) else ('/usr/bin/dbus-broker-launch', '/usr/bin/dbus-broker')):
         chroot(root, 'test', '-x', path)
     for unit in (() if is_lite(gs) else ('dbus.service', 'sockets.target.wants/dbus.socket')):

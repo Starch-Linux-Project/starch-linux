@@ -108,7 +108,7 @@ Plasma defaults are preserved verbatim in its integration package and copied
 into `/etc/xdg` only for the original profiles. No active Plasma defaults or
 Plasma login command is selected on a COSMIC target.
 
-COSMIC seeds only 13 keys: dark mode without automatic switching, readable
+COSMIC seeds 13 appearance/layout keys plus the OSK manual-activation default: dark mode without automatic switching, readable
 Starch blue (`#4DA9DF`), Evergreen, floating windows, a small centered native
 dock with a native app launcher button and Firefox/Files/Terminal/Settings/LUU favorites, and launcher/workspaces plus
 normal status controls in the top panel. The clock and other unmodified
@@ -117,7 +117,10 @@ behavior use upstream defaults. Favorites use installed desktop-entry stems:
 `linux-update-utility`. Validation checks the corresponding `.desktop` files
 and Evergreen image. Fonts, scaling and window controls remain upstream.
 
-Keys are seeded under `/etc/skel/.config/cosmic`, not reapplied at login.
+Appearance keys are seeded under `/etc/skel/.config/cosmic`, not reapplied at login.
+OSK automatic activation is disabled in the state seeded under `/etc/skel/.local/state/cosmic`; see
+[virtual keyboard](virtual-keyboard.md). Automatic rotation is enabled only for
+Standard COSMIC; see [rotation](rotation.md).
 `cosmic-config` finds a system default *directory* through XDG data paths;
 a partial `/usr/local/share/cosmic` directory would shadow the package's
 remaining defaults. Minimal per-key skel values preserve those fallbacks and

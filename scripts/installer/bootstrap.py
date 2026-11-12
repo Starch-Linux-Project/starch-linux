@@ -24,6 +24,8 @@ def pacstrap(root, config_path, keyring_args, packages, attempts=3):
 def apply_defaults(root, gs):
     # Seed /etc/skel before Calamares creates the account and home directory.
     shutil.copytree(DATA / 'target-overlay', root, dirs_exist_ok=True)
+    if has_cosmic(gs) and not is_lite(gs):
+        shutil.copytree(DATA / 'rotation-overlay', root, dirs_exist_ok=True)
     if not has_xfce(gs):
         shutil.copytree(DATA / 'desktop-overlays' / desktop_name(gs), root, dirs_exist_ok=True)
     if has_cosmic(gs) and is_lite(gs):

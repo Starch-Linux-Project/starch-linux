@@ -10,7 +10,7 @@ SERVICES = {
     'sysinit': ('starch-banner', 'udev', 'udev-trigger', 'cgroups'),
     'boot': ('sysctl', 'esysusers', 'etmpfiles-setup', 'elogind', 'agetty.tty2'),
     'default': ('dbus', 'NetworkManager', 'nftables', 'bluetoothd', 'starch-zram',
-                'syslog-ng', 'sddm', 'iio-sensor-proxy'),
+                'syslog-ng', 'sddm'),
 }
 
 
@@ -86,15 +86,6 @@ def configure(root, xfce=False, cosmic=False):
     manager = 'greetd' if cosmic else 'lightdm' if xfce else 'sddm'
     put(root, f'etc/conf.d/{manager}', 'rc_need="elogind dbus"\n')
     chroot(root, '/usr/lib/starch-lite/configure-pam')
-    # Artix ships the daemon and sensor udev rules, but no OpenRC service.
-    # Starting it without a sensor is harmless; it waits for device discovery.
-    put(root, 'etc/init.d/iio-sensor-proxy',
-        '#!/usr/bin/openrc-run\n'
-        'description="Sensor orientation and ambient light proxy"\n'
-        'supervisor="supervise-daemon"\n'
-        'command="/usr/lib/iio-sensor-proxy"\n'
-        'respawn_delay=5\n'
-        'depend() {\n    need dbus\n    after udev-trigger\n}\n', mode=0o755)
     # Claim tty2 before the display manager starts; do not race a getty against it on tty1.
     console = 2
     for number in range(1, 7):

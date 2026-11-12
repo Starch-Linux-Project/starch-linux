@@ -40,7 +40,7 @@ class CosmicTarget(unittest.TestCase):
             shutil.copytree(ROOT / 'archiso/profile', profile, symlinks=True)
             stage.stage(profile)
             data = profile / 'airootfs/usr/share/starch-installer'
-            self.assertEqual((data / 'target-overlay/usr/lib/starch/rotation.py').read_bytes(),
+            self.assertEqual((data / 'rotation-overlay/usr/lib/starch/rotation.py').read_bytes(),
                              (ROOT / 'packages/starch-rotation/root/usr/lib/starch/rotation.py').read_bytes())
             self.assertEqual((profile / 'airootfs/usr/lib/starch-installer/cosmic.py').read_bytes(),
                              (ROOT / 'scripts/installer/cosmic.py').read_bytes())
@@ -64,6 +64,14 @@ class CosmicTarget(unittest.TestCase):
                 self.assertEqual((root / 'etc/skel/.config/cosmic').is_dir(), desktop == 'cosmic')
                 self.assertEqual((root / 'etc/skel/.config/kwinrc').is_file(), desktop == 'plasma')
                 self.assertEqual((root / 'usr/lib/starch-cosmic/session').is_file(), init and desktop == 'cosmic')
+                self.assertEqual((root / 'usr/lib/starch/rotation.py').is_file(),
+                                 not init and desktop == 'cosmic')
+                self.assertEqual((root / 'etc/xdg/autostart/starch-rotation.desktop').is_file(),
+                                 not init and desktop == 'cosmic')
+                osk = root / 'etc/skel/.local/state/cosmic/com.system76.CosmicOSK/v1/ime_activation'
+                self.assertEqual(osk.is_file(), desktop == 'cosmic')
+                if desktop == 'cosmic':
+                    self.assertEqual(osk.read_text().strip(), 'false')
                 self.assertTrue((root / 'etc/nftables.conf').is_file())
                 self.assertTrue((root / 'usr/share/starch/splash-starch.bmp').is_file())
                 if desktop == 'plasma':
@@ -245,11 +253,8 @@ class CosmicTarget(unittest.TestCase):
             self.assertFalse((root / 'etc/sddm.conf.d/20-starch-lite.conf').exists())
             self.assertFalse(any('sddm' in c.args for c in calls.call_args_list))
             calls.assert_any_call(root, 'rc-update', 'add', 'elogind', 'boot')
-            calls.assert_any_call(root, 'rc-update', 'add', 'iio-sensor-proxy', 'default')
-            sensor_service = root / 'etc/init.d/iio-sensor-proxy'
-            self.assertEqual(sensor_service.stat().st_mode & 0o777, 0o755)
-            self.assertIn('need dbus', sensor_service.read_text())
-            self.assertIn('/usr/lib/iio-sensor-proxy', sensor_service.read_text())
+            self.assertFalse((root / 'etc/init.d/iio-sensor-proxy').exists())
+            self.assertFalse(any('iio-sensor-proxy' in c.args for c in calls.call_args_list))
             self.assertFalse(any('systemctl' in call.args for call in calls.call_args_list))
 
     def test_legacy_lite_defaults_are_byte_for_byte_preserved(self):

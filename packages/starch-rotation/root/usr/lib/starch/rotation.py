@@ -62,7 +62,7 @@ def cosmic_outputs(text):
     result = []
     for block in re.split(r'(?=^\S+ \()', text, flags=re.M):
         head = re.match(r'(\S+) \(enabled\)\n', block)
-        mode = re.search(r'^\s+(\d+)x(\d+) @ ([\d.]+) Hz.*\(current\)', block, re.M)
+        mode = re.search(r'^\s+(\d+)x(\d+) @\s+([\d.]+) Hz.*\(current\)', block, re.M)
         transform = re.search(r'^  Transform: (\w+)$', block, re.M)
         if head:
             if not mode or not transform:

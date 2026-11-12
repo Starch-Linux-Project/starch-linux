@@ -119,7 +119,7 @@ class LiteProfile(unittest.TestCase):
         plasma = profiles.lite_packages(base)
         xfce = profiles.lite_packages(base, xfce=True)
         self.assertTrue(profiles.PLASMA_PACKAGES.isdisjoint(xfce))
-        self.assertTrue(profiles.PLASMA_PACKAGES.issubset(plasma))
+        self.assertTrue((profiles.PLASMA_PACKAGES - {'qt6-sensors'}).issubset(plasma))
         for package in ('pipewire', 'wireplumber', 'networkmanager', 'nftables',
                         'lightdm', 'lightdm-openrc', 'lightdm-slick-greeter', 'firefox', 'linux-zen'):
             self.assertIn(package, xfce)

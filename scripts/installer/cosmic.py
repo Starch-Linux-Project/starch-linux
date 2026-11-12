@@ -122,6 +122,9 @@ def validate(root, home, lite=False):
     for entry in PINS:
         if not (root / 'usr/share/applications' / (entry + '.desktop')).is_file():
             raise RuntimeError(f'Missing COSMIC dock application: {entry}')
+    osk = home / '.local/state/cosmic/com.system76.CosmicOSK/v1/ime_activation'
+    if not osk.is_file() or osk.read_text().strip() != 'false':
+        raise RuntimeError('COSMIC manual on-screen keyboard default was not seeded.')
     seeded = root / 'etc/skel/.config/cosmic'
     if not seeded.is_dir() or not list(seeded.rglob('*')):
         raise RuntimeError('COSMIC defaults were not staged.')

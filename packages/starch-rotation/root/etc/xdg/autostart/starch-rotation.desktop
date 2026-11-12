@@ -2,5 +2,5 @@
 Type=Application
 Name=Automatic Screen Rotation
 Exec=/usr/bin/python3 /usr/lib/starch/rotation.py run
-OnlyShowIn=COSMIC;XFCE;
+OnlyShowIn=COSMIC;
 NoDisplay=true

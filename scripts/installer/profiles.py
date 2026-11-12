@@ -126,6 +126,7 @@ def check_cosmic_closure(resolved, lite=False):
     # These components define the defaults and non-systemd startup we inspected.
     for name in ('cosmic-session', 'cosmic-comp', 'cosmic-panel', 'cosmic-applets',
                  'cosmic-bg', 'cosmic-settings', 'cosmic-settings-daemon', 'cosmic-greeter',
+                 'cosmic-osk', 'cosmic-randr',
                  'xdg-desktop-portal-cosmic'):
         repo, version = by_name[name]
         if version.split(':')[-1].rsplit('-', 1)[0] != '1.11.0':
@@ -140,7 +141,7 @@ def kernel_name(gs):
 
 def lite_packages(packages, xfce=False):
     replacements = {'linux-lts': 'linux-zen', 'dbus-broker-units': 'dbus'}
-    result = [replacements.get(p, p) for p in packages if p != 'zram-generator']
+    result = [replacements.get(p, p) for p in packages if p not in {'zram-generator', 'iio-sensor-proxy', 'qt6-sensors'}]
     repository_packages = list(LITE_REPOSITORY_PACKAGES)
     if xfce:
         replacements = {'sddm': 'lightdm', 'sddm-openrc': 'lightdm-openrc'}

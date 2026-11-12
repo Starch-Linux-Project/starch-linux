@@ -17,8 +17,8 @@ COSMIC = '''eDP-2 (enabled)
   Transform: normal
 
   Modes:
-    1920x1200 @ 60.000 Hz (current) (preferred)
-    1920x1200 @ 48.000 Hz
+    1920x1200 @  60.000 Hz (current) (preferred)
+    1920x1200 @  48.000 Hz
 HDMI-A-1 (disabled)
   Model: External
 '''
@@ -59,7 +59,7 @@ class Rotation(unittest.TestCase):
     def test_cosmic_skips_docked_mirrored_and_unchanged_displays(self):
         for report in (COSMIC, COSMIC + 'DP-1 (mirroring "eDP-2")\n',
                        COSMIC.replace('HDMI-A-1 (disabled)', 'HDMI-A-1 (enabled)') +
-                       '  Transform: normal\n  1920x1080 @ 60.000 Hz (current)\n'):
+                       '  Transform: normal\n  1920x1080 @  60.000 Hz (current)\n'):
             with patch.object(rotation, 'command', return_value=report) as command:
                 rotation.Display('cosmic').apply('normal', {})
                 self.assertEqual(command.call_count, 1)
@@ -116,7 +116,7 @@ class Rotation(unittest.TestCase):
             self.assertEqual(tuple(map(float, command.call_args.args[4:])),
                              (.5, 0, 0, 0, 1, 0, 0, 0, 1))
 
-    def test_every_profile_includes_sensors_and_correct_adapter_dependencies(self):
+    def test_only_lts_profiles_request_rotation_sensors(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
         for lite, desktop in ((False, 'plasma'), (True, 'plasma'), (True, 'xfce'),
                               (False, 'cosmic'), (True, 'cosmic')):
@@ -124,8 +124,8 @@ class Rotation(unittest.TestCase):
                 def value(self, key):
                     return {'starchLite': lite, 'starchDesktop': desktop}.get(key)
             selected = profiles.selected_packages(base, Storage())
-            self.assertIn('iio-sensor-proxy', selected)
-            self.assertEqual('qt6-sensors' in selected, desktop == 'plasma')
+            self.assertEqual('iio-sensor-proxy' in selected, not lite)
+            self.assertEqual('qt6-sensors' in selected, desktop == 'plasma' and not lite)
             if desktop != 'plasma':
                 self.assertIn('python-gobject', selected)
                 self.assertIn('libnotify', selected)

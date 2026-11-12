@@ -4,6 +4,6 @@ Name=Toggle Rotation Lock
 Comment=Lock or unlock automatic screen rotation
 Exec=/usr/bin/python3 /usr/lib/starch/rotation.py toggle
 Icon=rotation-locked-symbolic
-OnlyShowIn=COSMIC;XFCE;
+OnlyShowIn=COSMIC;
 Categories=Settings;HardwareSettings;
 Terminal=false

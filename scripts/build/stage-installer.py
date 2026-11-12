@@ -127,7 +127,12 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
             f'def pretty_name():\n    return "Starch: {name}"\n\n'
             f'def run():\n    return run_stage("{name}", libcalamares.globalstorage, {name}.run)\n')
     overlay = data / 'target-overlay'
-    shutil.copytree(SOURCE / 'packages/starch-rotation/root', overlay, dirs_exist_ok=True,
+    # Remove the former shared rotation overlay when re-staging an existing tree.
+    for name in ('usr/lib/starch/rotation.py',
+                 'etc/xdg/autostart/starch-rotation.desktop',
+                 'usr/share/applications/starch-rotation-lock.desktop'):
+        (overlay / name).unlink(missing_ok=True)
+    shutil.copytree(SOURCE / 'packages/starch-rotation/root', data / 'rotation-overlay', dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     # Explicit allowlist: none of the live user, sudo or network state is copied.
     for relative in ('etc/skel/.config/kdeglobals', 'etc/skel/.config/baloofilerc',
