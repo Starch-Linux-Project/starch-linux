@@ -4,7 +4,8 @@
 
 Starch supports x86_64 PCs with UEFI or legacy BIOS. The standard desktop is
 KDE Plasma on Wayland, with SDDM login and Fish as the user's default shell.
-[Starch Lite](starch-lite.md) offers Linux Zen, OpenRC, and an optional Xfce desktop.
+[COSMIC LTS](cosmic.md) uses COSMIC with Linux LTS and systemd.
+[Starch Lite](starch-lite.md) uses Xfce, Linux Zen, and OpenRC.
 
 Calamares installs packages online and erases the entire selected disk.
 Back up its contents before installing. The root filesystem is ext4; swap is

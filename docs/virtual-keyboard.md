@@ -14,9 +14,7 @@ Starch Lite (Xfce) does not include the Plasma keyboard.
 
 ## COSMIC LTS
 
-Any Lite-specific implementation notes below are historical; Lite/COSMIC is no longer selectable.
-
-Both COSMIC profiles use the upstream on-screen keyboard with **manual**
+COSMIC LTS uses the upstream on-screen keyboard with **manual**
 activation. Automatic activation is disabled: COSMIC OSK 1.11's
 `ime_activation` option responds to text-field focus from both mouse and touch,
 so it cannot provide KDE-style touch-only activation. Starch does not patch
@@ -39,6 +37,6 @@ printf 'false\n' > "${XDG_STATE_HOME:-$HOME/.local/state}/cosmic/com.system76.Co
 Log out and back in if an already-open automatic keyboard remains visible.
 The new installer default does not rewrite existing accounts. Verify that
 mouse and touchscreen text-field focus leave the keyboard closed and that
-its manual control still opens it on both COSMIC profiles.
+its manual control still opens it on COSMIC LTS.
 
 Source: [COSMIC OSK 1.11 state schema](https://github.com/pop-os/cosmic-osk/blob/epoch-1.11.0/config/src/lib.rs).
