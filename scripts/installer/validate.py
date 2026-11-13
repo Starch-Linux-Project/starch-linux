@@ -105,7 +105,13 @@ def run(gs):
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
-    for service in (() if is_lite(gs) else (('cosmic-greeter.service' if has_cosmic(gs) else 'sddm.service'), 'NetworkManager.service', 'nftables.service', 'bluetooth.service')):
+    services = () if is_lite(gs) else [
+        'cosmic-greeter.service' if has_cosmic(gs) else 'sddm.service',
+        'NetworkManager.service', 'nftables.service', 'bluetooth.service',
+    ]
+    if has_cosmic(gs) and not is_lite(gs):
+        services.append('power-profiles-daemon.service')
+    for service in services:
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):

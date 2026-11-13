@@ -5,6 +5,7 @@ from runtime import DATA, LOG, STATE, chroot, command, target
 from profiles import (LITE_PACKAGES, is_lite, has_xfce, has_cosmic, desktop_name, profile_name,
                       validate_selection, pacman_config, verified_bundle)
 from repositories import prepare_lite_keyring
+from media_defaults import write_defaults
 
 
 def pacstrap(root, config_path, keyring_args, packages, attempts=3):
@@ -31,6 +32,8 @@ def apply_defaults(root, gs):
     if has_cosmic(gs) and is_lite(gs):
         shutil.copytree(DATA / 'desktop-overlays/cosmic-lite', root, dirs_exist_ok=True)
         (root / 'usr/lib/starch-cosmic/session').chmod(0o755)
+    if has_cosmic(gs):
+        write_defaults(root)
     if has_xfce(gs):
         panel = root / 'etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml'
         panel.parent.mkdir(parents=True, exist_ok=True)

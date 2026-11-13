@@ -447,3 +447,29 @@ class InstallerSafety(unittest.TestCase):
             installed = fs / 'usr/share/starch-installer/target-overlay/usr/share/wallpapers' / package.name
             self.assertEqual((installed / 'metadata.json').read_text(), (package / 'metadata.json').read_text())
             self.assertEqual((installed / 'contents/images/3840x2160.png').read_bytes(), b'png fixture')
+            backgrounds = list((fs / 'usr/share/backgrounds/starch').iterdir())
+            self.assertEqual(len(backgrounds), 1)
+            background = backgrounds[0]
+            self.assertEqual(background.read_bytes(), b'png fixture')
+            installed_background = fs / 'usr/share/starch-installer/target-overlay' / background.relative_to(fs)
+            self.assertEqual(installed_background.read_bytes(), b'png fixture')
+            self.assertFalse(list((fs / 'usr/share/starch-installer/desktop-overlays').rglob('all')))
+
+    def test_evergreen_is_an_optional_cosmic_default(self):
+        spec = importlib.util.spec_from_file_location('stage_wallpapers', ROOT / 'scripts/build/stage-installer.py')
+        stage = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stage)
+        with tempfile.TemporaryDirectory() as d:
+            temporary = Path(d)
+            fs = temporary / 'airootfs'
+            inputs = temporary / 'wallpapers'
+            inputs.mkdir()
+            (inputs / 'wyxina-tree-8559118.jpg').write_bytes(b'evergreen fixture')
+            stage.stage_wallpapers(fs, inputs)
+            default = fs / 'usr/share/backgrounds/starch/evergreen.jpg'
+            self.assertEqual(default.read_bytes(), b'evergreen fixture')
+            for desktop in ('cosmic', 'cosmic-lite'):
+                selection = (fs / 'usr/share/starch-installer/desktop-overlays' / desktop
+                             / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all')
+                self.assertIn('Path("/usr/share/backgrounds/starch/evergreen.jpg")',
+                              selection.read_text())

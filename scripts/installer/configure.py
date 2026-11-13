@@ -55,6 +55,8 @@ def run(gs):
         services = ['NetworkManager.service', 'nftables.service']
         if not has_cosmic(gs):
             services.append('sddm.service')
+        else:
+            services.append('power-profiles-daemon.service')
         services.append('bluetooth.service')
         chroot(root, 'systemctl', 'enable', *services)
         chroot(root, 'systemctl', 'set-default', 'graphical.target')

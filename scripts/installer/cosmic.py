@@ -4,8 +4,8 @@ import tomllib
 
 from profiles import COSMIC_PACKAGES
 from runtime import chroot, put
+from media_defaults import validate_defaults
 
-WALLPAPER = 'usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg'
 SESSION_DIR = 'usr/share/wayland-sessions'
 PINS = ('firefox', 'com.system76.CosmicFiles', 'com.system76.CosmicTerm',
         'com.system76.CosmicSettings', 'linux-update-utility')
@@ -85,6 +85,7 @@ def configure(root, lite=False):
 
 
 def validate(root, home, lite=False):
+    validate_defaults(root)
     config = tomllib.loads((root / 'etc/greetd/cosmic-greeter.toml').read_text())
     if (config.get('terminal', {}).get('vt') != 1
             or config.get('general', {}).get('service') != 'starch-greetd'
@@ -109,7 +110,7 @@ def validate(root, home, lite=False):
     launcher = '/usr/lib/starch-cosmic/session' if lite else '/usr/bin/start-cosmic'
     if not re.search(r'^Exec=' + re.escape(launcher) + r'\s*$', desktop, re.M):
         raise RuntimeError('Incorrect COSMIC session launcher.')
-    for name in (WALLPAPER, 'usr/share/wayland-sessions/cosmic.desktop',
+    for name in ('usr/share/wayland-sessions/cosmic.desktop',
                  'usr/share/xdg-desktop-portal/portals/cosmic.portal',
                  'usr/share/xdg-desktop-portal/cosmic-portals.conf',
                  'usr/share/dbus-1/services/org.freedesktop.secrets.service',

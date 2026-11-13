@@ -135,6 +135,8 @@
     "cosmic-randr",
     "cosmic-screenshot",
     "cosmic-osk",
+    "cosmic-store",
+    "cosmic-viewer",
     "xdg-desktop-portal-cosmic",
     "xdg-desktop-portal",
     "xdg-desktop-portal-gtk",
@@ -145,6 +147,7 @@
     "gnome-keyring",
     "xdg-user-dirs",
     "bluez",
+    "power-profiles-daemon",
     "greetd",
     "python-gobject",
     "libnotify"

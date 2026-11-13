@@ -16,10 +16,14 @@ LUU_FILES = {
 }
 
 WALLPAPER_SUFFIXES = {'.avif', '.bmp', '.gif', '.jpeg', '.jpg', '.jxl', '.png', '.svg', '.tif', '.tiff', '.webp'}
+COSMIC_WALLPAPER_SUFFIXES = {'.avif', '.jpeg', '.jpg', '.jxl', '.png', '.webp'}
+EVERGREEN_SOURCE = 'wyxina-tree-8559118.jpg'
+COSMIC_BACKGROUNDS = Path('usr/share/backgrounds/starch')
+COSMIC_DEFAULT = COSMIC_BACKGROUNDS / 'evergreen.jpg'
 
 
 def stage_wallpapers(fs, input_dir=None):
-    """Turn source images into system Plasma wallpaper packages."""
+    """Stage source images for the Plasma and COSMIC wallpaper choosers."""
     input_dir = Path(input_dir) if input_dir is not None else SOURCE / 'wallpapers'
     if not input_dir.exists():
         return
@@ -36,7 +40,7 @@ def stage_wallpapers(fs, input_dir=None):
         slug = re.sub(r'[^a-z0-9]+', '-', source.stem.lower()).strip('-') or 'wallpaper'
         digest = hashlib.sha256(relative.encode()).hexdigest()[:8]
         package_name = f'Starch-{slug}-{digest}'
-        if relative == 'wyxina-tree-8559118.jpg':
+        if relative == EVERGREEN_SOURCE:
             package_name = 'Starch-Evergreen'
         plugin_id = f'org.starch.wallpaper.{slug}.{digest}'
         display_name = re.sub(r'[_-]+', ' ', source.stem).strip().title() or 'Starch Wallpaper'
@@ -57,6 +61,38 @@ def stage_wallpapers(fs, input_dir=None):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
             (package / 'metadata.json').write_text(json.dumps(metadata, indent=4) + '\n')
+
+        # COSMIC Settings discovers system wallpapers below
+        # /usr/share/backgrounds and only descends three levels. Keep its
+        # copies shallow and collision-safe instead of exposing Plasma's
+        # package layout, which is one level too deep.
+        if source.suffix.lower() in COSMIC_WALLPAPER_SUFFIXES:
+            background_name = f'{slug}-{digest}{source.suffix.lower()}'
+            if relative == EVERGREEN_SOURCE:
+                background_name = COSMIC_DEFAULT.name
+            for root in (fs, overlay):
+                background = root / COSMIC_BACKGROUNDS / background_name
+                background.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, background)
+
+    # Evergreen is a preferred initial choice, not a required COSMIC asset.
+    # Only seed the selection when the corresponding input was supplied.
+    selections = [
+        fs / 'usr/share/starch-installer/desktop-overlays' / desktop
+        / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all'
+        for desktop in ('cosmic', 'cosmic-lite')
+    ]
+    for config in selections:
+        config.unlink(missing_ok=True)
+    default = fs / COSMIC_DEFAULT
+    if default.is_file():
+        selection = ('(output: "all", source: Path("/' + COSMIC_DEFAULT.as_posix()
+                     + '"), filter_by_theme: false, rotation_frequency: 900, '
+                     'filter_method: Lanczos, scaling_mode: Zoom, '
+                     'sampling_method: Alphanumeric)\n')
+        for config in selections:
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text(selection)
 
 
 def stage_luu(fs, input_dir=None):

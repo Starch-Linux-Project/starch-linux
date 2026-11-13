@@ -1,1 +1,0 @@
-(output: "all", source: Path("/usr/share/wallpapers/Starch-Evergreen/contents/images/3840x2160.jpg"), filter_by_theme: false, rotation_frequency: 900, filter_method: Lanczos, scaling_mode: Zoom, sampling_method: Alphanumeric)

@@ -91,16 +91,17 @@ COSMIC_PACKAGES = (
     'cosmic-launcher', 'cosmic-app-library', 'cosmic-workspaces', 'cosmic-settings',
     'cosmic-settings-daemon', 'cosmic-bg', 'cosmic-notifications', 'cosmic-osd',
     'cosmic-idle', 'cosmic-files', 'cosmic-icon-theme', 'cosmic-greeter',
-    'cosmic-randr', 'cosmic-screenshot', 'cosmic-osk',
+    'cosmic-randr', 'cosmic-screenshot', 'cosmic-osk', 'cosmic-store', 'cosmic-viewer',
     'cosmic-terminal', 'cosmic-text-editor', 'xdg-desktop-portal-cosmic',
     'xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xorg-xwayland',
     'xorg-server', 'xorg-xauth', 'polkit-gnome', 'gnome-keyring', 'xdg-user-dirs',
     # COSMIC replaces Blueman's UI, but configure still enables bluetooth.service.
-    'bluez', 'greetd', 'python-gobject', 'libnotify',
+    # Its battery applet uses power-profiles-daemon for profile selection.
+    'bluez', 'power-profiles-daemon', 'greetd', 'python-gobject', 'libnotify',
 )
 COSMIC_FORBIDDEN = PLASMA_PACKAGES | {
     'kwin', 'kwin-x11', 'plasma-x11-session', 'xfce4-session', 'xfwm4',
-    'xfce4-panel', 'sddm', 'sddm-openrc', 'lightdm', 'lightdm-openrc', 'cosmic-store',
+    'xfce4-panel', 'sddm', 'sddm-openrc', 'lightdm', 'lightdm-openrc',
 }
 
 

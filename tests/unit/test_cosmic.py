@@ -19,6 +19,7 @@ import bootstrap
 import configure
 import cosmic
 import lite
+import media_defaults
 import profiles
 from test_desktop_selection import Storage
 
@@ -29,6 +30,15 @@ def load_module(name, path):
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+def add_media_desktops(root):
+    applications = root / 'usr/share/applications'
+    applications.mkdir(parents=True, exist_ok=True)
+    (applications / media_defaults.VLC).write_text(
+        '[Desktop Entry]\nType=Application\nMimeType=video/mp4;audio/mpeg;image/vnd.rn-realpix;\n')
+    (applications / media_defaults.VIEWER).write_text(
+        '[Desktop Entry]\nType=Application\nMimeType=image/png;image/jpeg;image/gif;\n')
 
 
 class CosmicTarget(unittest.TestCase):
@@ -59,6 +69,11 @@ class CosmicTarget(unittest.TestCase):
                     panel = root / 'usr/share/starch-lite/xfce-panel.xml'
                     panel.parent.mkdir(parents=True)
                     panel.write_text('<channel/>')
+                if desktop == 'cosmic':
+                    add_media_desktops(root)
+                    mimeapps = root / media_defaults.MIMEAPPS
+                    mimeapps.parent.mkdir(parents=True, exist_ok=True)
+                    mimeapps.write_text('[Default Applications]\napplication/pdf=documents.desktop\n')
                 with patch.object(bootstrap, 'DATA', data):
                     bootstrap.apply_defaults(root, Storage(starchLite=init, starchDesktop=desktop))
                 self.assertEqual((root / 'etc/skel/.config/cosmic').is_dir(), desktop == 'cosmic')
@@ -72,6 +87,17 @@ class CosmicTarget(unittest.TestCase):
                 self.assertEqual(osk.is_file(), desktop == 'cosmic')
                 if desktop == 'cosmic':
                     self.assertEqual(osk.read_text().strip(), 'false')
+                    defaults = configparser.ConfigParser(interpolation=None)
+                    defaults.read(root / media_defaults.MIMEAPPS)
+                    self.assertEqual(defaults['Default Applications']['image/png'], media_defaults.VIEWER)
+                    self.assertEqual(defaults['Default Applications']['image/gif'], media_defaults.VIEWER)
+                    self.assertEqual(defaults['Default Applications']['video/mp4'], media_defaults.VLC)
+                    self.assertEqual(defaults['Default Applications']['audio/mpeg'], media_defaults.VLC)
+                    self.assertEqual(defaults['Default Applications']['image/vnd.rn-realpix'], media_defaults.VLC)
+                    self.assertEqual(defaults['Default Applications']['application/pdf'], 'documents.desktop')
+                    background = root / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all'
+                    self.assertIn('Path("/usr/share/backgrounds/starch/evergreen.jpg")',
+                                  background.read_text())
                 self.assertTrue((root / 'etc/nftables.conf').is_file())
                 self.assertTrue((root / 'usr/share/starch/splash-starch.bmp').is_file())
                 if desktop == 'plasma':
@@ -130,6 +156,9 @@ class CosmicTarget(unittest.TestCase):
                     calls.assert_any_call(root, 'systemctl', 'enable', '--force', 'cosmic-greeter.service')
                     self.assertFalse(any('sddm.service' in c.args and 'enable' in c.args
                                          for c in common.call_args_list))
+                    common.assert_any_call(
+                        root, 'systemctl', 'enable', 'NetworkManager.service',
+                        'nftables.service', 'power-profiles-daemon.service', 'bluetooth.service')
                     calls.assert_any_call(root, 'systemctl', '--global', 'enable', 'pipewire.socket',
                                           'pipewire-pulse.socket', 'wireplumber.service')
 
@@ -140,7 +169,7 @@ class CosmicTarget(unittest.TestCase):
                 shutil.copytree(ROOT / 'packages/starch-cosmic/root', root, dirs_exist_ok=True)
                 home = root / 'home/test'
                 shutil.copytree(root / 'etc/skel', home)
-                for name in (cosmic.WALLPAPER, 'usr/share/wayland-sessions/cosmic.desktop',
+                for name in ('usr/share/wayland-sessions/cosmic.desktop',
                              'usr/share/xdg-desktop-portal/portals/cosmic.portal',
                              'usr/share/xdg-desktop-portal/cosmic-portals.conf',
                              'usr/share/dbus-1/services/org.freedesktop.secrets.service',
@@ -157,6 +186,8 @@ class CosmicTarget(unittest.TestCase):
                     path = root / 'usr/share/applications' / (entry + '.desktop')
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text('[Desktop Entry]\n')
+                add_media_desktops(root)
+                media_defaults.write_defaults(root)
                 (root / 'etc/pam.d/sddm').write_text('auth include system-login\n')
                 if not is_lite:
                     for manager in ('greetd', 'sddm', 'lightdm'):
@@ -185,6 +216,13 @@ class CosmicTarget(unittest.TestCase):
                     with self.assertRaisesRegex(RuntimeError, 'Plasma defaults'):
                         cosmic.validate(root, home, lite=is_lite)
                     (home / '.config/kwinrc').unlink()
+                    mimeapps = root / media_defaults.MIMEAPPS
+                    valid_mimeapps = mimeapps.read_text()
+                    mimeapps.write_text(valid_mimeapps.replace(
+                        'image/png=com.system76.CosmicViewer.desktop', 'image/png=vlc.desktop'))
+                    with self.assertRaisesRegex(RuntimeError, 'media defaults'):
+                        cosmic.validate(root, home, lite=is_lite)
+                    mimeapps.write_text(valid_mimeapps)
                     (root / 'usr/share/applications/firefox.desktop').unlink()
                     with self.assertRaisesRegex(RuntimeError, 'dock application'):
                         cosmic.validate(root, home, lite=is_lite)
