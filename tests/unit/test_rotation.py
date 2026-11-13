@@ -118,8 +118,7 @@ class Rotation(unittest.TestCase):
 
     def test_only_lts_profiles_request_rotation_sensors(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
-        for lite, desktop in ((False, 'plasma'), (True, 'plasma'), (True, 'xfce'),
-                              (False, 'cosmic'), (True, 'cosmic')):
+        for lite, desktop in ((False, 'plasma'), (True, 'xfce'), (False, 'cosmic')):
             class Storage:
                 def value(self, key):
                     return {'starchLite': lite, 'starchDesktop': desktop}.get(key)

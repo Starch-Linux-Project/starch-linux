@@ -1,9 +1,8 @@
 From: Starch Linux Project
-Subject: [PATCH] Add Advanced warning and Starch Lite profile
+Subject: [PATCH] Present three exclusive Installation Profiles
 
-Provide a native Qt Widgets page with an acknowledgement before showing
-advanced options. Starch Lite is optional, unchecked by default, and available
-when the normal ISO build stages its verified package bundle.
+Reuse the existing Qt Widgets module and installer storage contract.
+The internal starchadvanced module name is retained for packaging compatibility.
 
 Upstream-Status: Inappropriate [Starch-specific presentation]
 License: GPL-3.0-or-later
@@ -26,7 +25,7 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.h b/src/modules/starcha
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.h
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,39 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#ifndef STARCH_ADVANCEDVIEWSTEP_H
 +#define STARCH_ADVANCEDVIEWSTEP_H
@@ -37,7 +36,7 @@ new file mode 100644
 +
 +#include <QPointer>
 +#include <QWidget>
-+#include <QCheckBox>
++#include <QRadioButton>
 +
 +class PLUGINDLLEXPORT AdvancedViewStep : public Calamares::ViewStep
 +{
@@ -60,10 +59,9 @@ new file mode 100644
 +    void saveSelection();
 +    bool m_liteAvailable = false;
 +    QPointer< QWidget > m_widget;
-+    QPointer< QCheckBox > m_acknowledge;
-+    QPointer< QCheckBox > m_lite;
-+    QPointer< QCheckBox > m_xfce;
-+    QPointer< QCheckBox > m_cosmic;
++    QPointer< QRadioButton > m_lite;
++    QPointer< QRadioButton > m_plasma;
++    QPointer< QRadioButton > m_cosmic;
 +};
 +CALAMARES_PLUGIN_FACTORY_DECLARATION( AdvancedViewStepFactory )
 +#endif
@@ -71,18 +69,16 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,122 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
 +#include "GlobalStorage.h"
 +#include "JobQueue.h"
 +
-+#include <QCheckBox>
++#include <QButtonGroup>
 +#include <QFrame>
-+#include <QGroupBox>
-+#include <QGraphicsBlurEffect>
-+#include <QGridLayout>
 +#include <QLabel>
++#include <QRadioButton>
 +#include <QVBoxLayout>
 +
 +CALAMARES_PLUGIN_FACTORY_DEFINITION( AdvancedViewStepFactory, registerPlugin< AdvancedViewStep >(); )
@@ -94,16 +90,13 @@ new file mode 100644
 +
 +AdvancedViewStep::~AdvancedViewStep()
 +{
-+    if ( m_widget && !m_widget->parent() )
-+    {
-+        m_widget->deleteLater();
-+    }
++    if ( m_widget && !m_widget->parent() ) m_widget->deleteLater();
 +}
 +
 +QString
 +AdvancedViewStep::prettyName() const
 +{
-+    return tr( "Advanced" );
++    return tr( "Installation Profiles" );
 +}
 +
 +QWidget*
@@ -112,113 +105,55 @@ new file mode 100644
 +    if ( !m_widget )
 +    {
 +        m_widget = new QWidget;
-+        m_widget->setObjectName( "starchAdvancedPage" );
++        m_widget->setObjectName( "starchProfilesPage" );
 +        auto* layout = new QVBoxLayout( m_widget );
-+        layout->setContentsMargins( 32, 24, 32, 24 );
-+        layout->setSpacing( 16 );
-+
-+        auto* stage = new QWidget( m_widget );
-+        auto* stageLayout = new QGridLayout( stage );
-+        stageLayout->setContentsMargins( 0, 0, 0, 0 );
-+        auto* profiles = new QWidget( stage );
-+        auto* profilesLayout = new QVBoxLayout( profiles );
-+        profilesLayout->setContentsMargins( 0, 0, 0, 0 );
-+        profilesLayout->setSpacing( 18 );
-+        auto* blur = new QGraphicsBlurEffect( profiles );
-+        blur->setBlurRadius( 10 );
-+        blur->setBlurHints( QGraphicsBlurEffect::QualityHint );
-+        profiles->setGraphicsEffect( blur );
-+        profiles->setEnabled( false );
-+        stageLayout->addWidget( profiles, 0, 0 );
-+        layout->addWidget( stage, 1 );
-+
-+        auto* options = new QGroupBox( tr( "Alternative profile" ), profiles );
-+        options->setObjectName( "advancedOptions" );
-+        auto* optionsLayout = new QVBoxLayout( options );
-+        auto* lite = new QCheckBox( tr( "Starch Lite (Special thanks to the Artix Linux team!)" ), options );
-+        m_lite = lite;
-+        lite->setObjectName( "starchLite" );
-+        lite->setChecked( false );
-+        // Public enablement requires verified package inputs and fresh-install testing.
-+        lite->setEnabled( m_liteAvailable );
-+        optionsLayout->addWidget( lite );
-+        auto* xfce = new QCheckBox( tr( "Use Xfce instead of KDE Plasma (Lite only, X11)" ), options );
-+        m_xfce = xfce;
-+        xfce->setObjectName( "starchLiteXfce" );
-+        xfce->setEnabled( false );
-+        auto* cosmic = new QCheckBox( tr( "Use COSMIC instead of KDE Plasma (Wayland)" ), options );
-+        m_cosmic = cosmic;
-+        cosmic->setObjectName( "starchCosmic" );
-+        connect( xfce, &QCheckBox::toggled, this, [this]( bool checked ) {
-+            if ( checked ) m_cosmic->setChecked( false );
-+            saveSelection();
-+        } );
-+        connect( cosmic, &QCheckBox::toggled, this, [this]( bool checked ) {
-+            if ( checked ) m_xfce->setChecked( false );
-+            saveSelection();
-+        } );
-+        auto* description = new QLabel(
-+            tr( "Alternate config with Linux Zen and OpenRC. Desktop selection does not change the kernel or init system. "
-+                "RAM usage can be as low as 700MB on Lite with xfce." ), options );
-+        description->setWordWrap( true );
-+        optionsLayout->addWidget( description );
-+        auto* divider = new QFrame( options );
-+        divider->setFrameShape( QFrame::HLine );
-+        optionsLayout->addWidget( divider );
-+        optionsLayout->addWidget( new QLabel( tr( "Installed desktop" ), options ) );
-+        optionsLayout->addWidget( xfce );
-+        optionsLayout->addWidget( cosmic );
++        layout->setContentsMargins( 24, 16, 24, 16 );
++        layout->setSpacing( 12 );
++        auto* subtitle = new QLabel( tr( "Choose the Starch Linux experience that's right for you." ), m_widget );
++        subtitle->setWordWrap( true );
++        layout->addWidget( subtitle );
++        auto* group = new QButtonGroup( m_widget );
++        group->setExclusive( true );
++        auto addProfile = [&]( const QString& name, const QString& title, const QString& details,
++                               const QString& description ) {
++            auto* card = new QFrame( m_widget );
++            card->setObjectName( "installationProfile" );
++            auto* cardLayout = new QVBoxLayout( card );
++            auto* button = new QRadioButton( title, card );
++            button->setObjectName( name );
++            group->addButton( button );
++            cardLayout->addWidget( button );
++            for ( const auto& text : { details, description } )
++            {
++                auto* label = new QLabel( text, card );
++                label->setWordWrap( true );
++                cardLayout->addWidget( label );
++            }
++            layout->addWidget( card );
++            connect( button, &QRadioButton::toggled, this, [this]( bool checked ) {
++                if ( checked ) saveSelection();
++            } );
++            return button;
++        };
++        m_plasma = addProfile( "starchPlasma", tr( "KDE Plasma LTS — Recommended" ),
++            tr( "Desktop: KDE Plasma · Kernel: Linux LTS · Init: systemd" ),
++            tr( "Starch's most established and thoroughly tested configuration. Recommended for the most reliable everyday desktop experience." ) );
++        m_cosmic = addProfile( "starchCosmic", tr( "COSMIC LTS" ),
++            tr( "Desktop: COSMIC · Kernel: Linux LTS · Init: systemd" ),
++            tr( "A modern desktop experience featuring COSMIC 1.x. Some features and integrations may be less mature than KDE Plasma." ) );
++        m_lite = addProfile( "starchLite", tr( "Starch Lite — For experienced users" ),
++            tr( "Desktop: XFCE · Kernel: Linux Zen · Init: OpenRC" ),
++            tr( "Starch's lightest and most extensively optimized configuration. Designed for experienced users comfortable with more hands-on system management." ) );
++        m_lite->setEnabled( m_liteAvailable );
 +        if ( !m_liteAvailable )
 +        {
-+            auto* status = new QLabel(
-+                tr( "Unavailable because the Starch Lite package bundle is missing." ), options );
++            auto* status = new QLabel( tr( "Starch Lite is unavailable because its package bundle is missing." ), m_widget );
 +            status->setObjectName( "profileUnavailable" );
 +            status->setWordWrap( true );
-+            optionsLayout->addWidget( status );
++            layout->addWidget( status );
 +        }
-+        profilesLayout->addWidget( options );
-+        profilesLayout->addStretch();
-+
-+        auto* gate = new QFrame( stage );
-+        gate->setObjectName( "advancedGate" );
-+        gate->setMaximumWidth( 460 );
-+        auto* gateLayout = new QVBoxLayout( gate );
-+        gateLayout->setContentsMargins( 28, 28, 28, 28 );
-+        gateLayout->setSpacing( 16 );
-+        auto* notice = new QLabel( tr( "Advanced options" ), gate );
-+        notice->setObjectName( "advancedGateTitle" );
-+        notice->setAlignment( Qt::AlignCenter );
-+        gateLayout->addWidget( notice );
-+        auto* warning = new QLabel(
-+            tr( "Only intended for advanced users. These options change core system components." ), gate );
-+        warning->setWordWrap( true );
-+        warning->setAlignment( Qt::AlignCenter );
-+        gateLayout->addWidget( warning );
-+        auto* skip = new QLabel(
-+            tr( "You can skip this menu. Click Next to continue with the recommended defaults." ), gate );
-+        skip->setWordWrap( true );
-+        skip->setAlignment( Qt::AlignCenter );
-+        gateLayout->addWidget( skip );
-+        auto* acknowledge = new QCheckBox( tr( "I understand. Show advanced options." ), gate );
-+        m_acknowledge = acknowledge;
-+        acknowledge->setObjectName( "advancedAcknowledgement" );
-+        gateLayout->addWidget( acknowledge, 0, Qt::AlignHCenter );
-+        stageLayout->addWidget( gate, 0, 0, Qt::AlignCenter );
-+        gate->raise();
-+        connect( acknowledge, &QCheckBox::toggled, this, [this, profiles, blur, gate]( bool checked ) {
-+            blur->setEnabled( !checked );
-+            profiles->setEnabled( checked );
-+            gate->setVisible( !checked );
-+            if ( !checked ) { m_lite->setChecked( false ); m_cosmic->setChecked( false ); }
-+            saveSelection();
-+            if ( checked ) m_lite->setFocus( Qt::OtherFocusReason );
-+        } );
-+        connect( lite, &QCheckBox::toggled, this, [this]( bool checked ) {
-+            m_xfce->setEnabled( checked );
-+            if ( !checked ) m_xfce->setChecked( false );
-+            saveSelection();
-+        } );
-+        saveSelection();
++        layout->addStretch();
++        m_plasma->setChecked( true );
 +    }
 +    return m_widget;
 +}
@@ -231,7 +166,7 @@ new file mode 100644
 +    if ( m_lite )
 +    {
 +        m_lite->setEnabled( m_liteAvailable );
-+        if ( !m_liteAvailable ) m_lite->setChecked( false );
++        if ( !m_liteAvailable && m_lite->isChecked() ) m_plasma->setChecked( true );
 +    }
 +    saveSelection();
 +}
@@ -240,29 +175,22 @@ new file mode 100644
 +AdvancedViewStep::saveSelection()
 +{
 +    auto* storage = Calamares::JobQueue::instance()->globalStorage();
-+    const bool acknowledged = m_acknowledge && m_acknowledge->isChecked();
-+    storage->insert( "starchAdvancedAcknowledged", acknowledged );
-+    const bool lite = acknowledged && m_liteAvailable && m_lite && m_lite->isChecked();
++    const bool lite = m_liteAvailable && m_lite && m_lite->isChecked();
++    const bool cosmic = m_cosmic && m_cosmic->isChecked();
++    const QString desktop = lite ? "xfce" : ( cosmic ? "cosmic" : "plasma" );
 +    storage->insert( "starchLite", lite );
-+    const bool xfce = lite && m_xfce && m_xfce->isChecked();
-+    const bool cosmic = acknowledged && m_cosmic && m_cosmic->isChecked();
-+    const QString desktop = cosmic ? "cosmic" : ( xfce ? "xfce" : "plasma" );
 +    storage->insert( "starchDesktop", desktop );
-+    storage->insert( "starchLiteXfce", xfce );
++    storage->insert( "starchLiteXfce", lite );
 +}
 +
 +QString
 +AdvancedViewStep::prettyStatus() const
 +{
-+    if ( m_acknowledge && m_acknowledge->isChecked() && m_cosmic && m_cosmic->isChecked() )
-+        return m_liteAvailable && m_lite && m_lite->isChecked()
-+            ? tr( "Starch Lite: Linux Zen, OpenRC and COSMIC (Wayland)." )
-+            : tr( "Standard Starch Linux: Linux LTS, systemd and COSMIC (Wayland)." );
-+    if ( m_liteAvailable && m_lite && m_lite->isChecked() && m_xfce && m_xfce->isChecked() )
-+        return tr( "Starch Lite: Linux Zen, OpenRC and Xfce (X11), without KDE Plasma." );
 +    if ( m_liteAvailable && m_lite && m_lite->isChecked() )
-+        return tr( "Starch Lite: Linux Zen, OpenRC, Limine and KDE Plasma." );
-+    return tr( "Standard Starch Linux: Linux LTS, systemd and KDE Plasma." );
++        return tr( "Starch Lite: XFCE, Linux Zen and OpenRC." );
++    if ( m_cosmic && m_cosmic->isChecked() )
++        return tr( "COSMIC LTS: COSMIC, Linux LTS and systemd." );
++    return tr( "KDE Plasma LTS: KDE Plasma, Linux LTS and systemd." );
 +}
 diff --git a/src/modules/starchadvanced/starchadvanced.conf b/src/modules/starchadvanced/starchadvanced.conf
 new file mode 100644

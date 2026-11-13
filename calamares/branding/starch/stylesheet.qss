@@ -8,59 +8,25 @@
     padding: 16px;
 }
 
-#starchAdvancedPage {
+#starchProfilesPage {
     background: transparent;
     color: palette(window-text);
 }
-#advancedOptions {
+#installationProfile {
     background-color: palette(base);
     border: 1px solid palette(mid);
     border-radius: 6px;
-    padding: 12px;
 }
-#advancedOptions {
-    margin-top: 6px;
-    padding-top: 16px;
+#installationProfile QLabel {
+    border: none;
+    background: transparent;
 }
-#advancedOptions::title {
-    color: palette(window-text);
-    background-color: palette(base);
-    font-size: 15px;
-    font-weight: 600;
-    left: 12px;
-    padding: 0 5px;
-}
-#advancedAcknowledgement,
-#starchLite,
-#starchLiteXfce {
+#installationProfile QRadioButton {
     spacing: 9px;
-}
-#starchLite {
     font-size: 14px;
     font-weight: 600;
 }
 #profileUnavailable {
     color: #e06c75;
     font-weight: 600;
-}
-
-#advancedGate {
-    background-color: palette(base);
-    border: 1px solid palette(mid);
-    border-radius: 16px;
-    color: palette(text);
-}
-#advancedGate QLabel {
-    background: transparent;
-    border: none;
-    color: palette(text);
-}
-#advancedGateTitle {
-    font-size: 22px;
-    font-weight: 600;
-}
-#advancedGate #advancedAcknowledgement {
-    color: palette(text);
-    font-weight: 600;
-    padding: 12px 0;
 }

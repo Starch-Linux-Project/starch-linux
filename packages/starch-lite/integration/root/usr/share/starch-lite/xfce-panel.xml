@@ -21,7 +21,7 @@
     <property name="plugin-1" type="string" value="whiskermenu"/>
     <property name="plugin-8" type="string" value="launcher">
       <property name="items" type="array">
-        <value type="string" value="linux-update-utility.desktop"/>
+        <value type="string" value="/usr/share/applications/linux-update-utility.desktop"/>
       </property>
     </property>
     <property name="plugin-2" type="string" value="tasklist"/>

@@ -25,11 +25,11 @@ class DesktopSelection(unittest.TestCase):
     def test_existing_package_sets_and_identities_are_preserved(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
         for lite, desktop, identity in (
-                (False, 'plasma', 'standard'), (True, 'plasma', 'lite'),
+                (False, 'plasma', 'standard'), (False, 'cosmic', 'standard-cosmic'),
                 (True, 'xfce', 'lite-xfce')):
             with self.subTest(profile=identity):
                 gs = Storage(starchLite=lite, starchDesktop=desktop)
-                expected = profiles.lite_packages(base, xfce=desktop == 'xfce') if lite else base
+                expected = json.loads((ROOT / 'tests/fixtures/installation-profiles.json').read_text())[identity]
                 self.assertEqual(profiles.selected_packages(base, gs), expected)
                 self.assertEqual(profiles.profile_name(gs), identity)
                 self.assertEqual(profiles.kernel_name(gs), 'linux-zen' if lite else 'linux-lts')
@@ -37,7 +37,7 @@ class DesktopSelection(unittest.TestCase):
                                  'pacman-lite.conf' if lite else 'pacman.conf')
 
     def test_legacy_selection_remains_compatible(self):
-        for values, desktop in (({}, 'plasma'), ({'starchLite': True}, 'plasma'),
+        for values, desktop in (({}, 'plasma'),
                                 ({'starchLite': True, 'starchLiteXfce': True}, 'xfce')):
             gs = Storage(**values)
             profiles.validate_selection(gs)
@@ -47,7 +47,9 @@ class DesktopSelection(unittest.TestCase):
         cases = (
             {'starchDesktop': 'unknown'}, {'starchDesktop': ''},
             {'starchDesktop': ['plasma']}, {'starchDesktop': 'xfce'},
-            {'starchLiteXfce': True},
+            {'starchLiteXfce': True}, {'starchLite': True},
+            {'starchLite': True, 'starchDesktop': 'plasma'},
+            {'starchLite': True, 'starchDesktop': 'cosmic'},
             {'starchLite': True, 'starchDesktop': 'plasma', 'starchLiteXfce': True},
             {'starchLite': True, 'starchDesktop': 'cosmic', 'starchLiteXfce': True},
         )
@@ -59,9 +61,9 @@ class DesktopSelection(unittest.TestCase):
                 disk.assert_not_called()
                 command.assert_not_called()
 
-    def test_both_cosmic_profiles_exclude_other_desktops_and_preserve_init(self):
+    def test_cosmic_lts_excludes_other_desktops_and_preserves_init(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
-        for lite in (False, True):
+        for lite in (False,):
             gs = Storage(starchLite=lite, starchDesktop='cosmic')
             selected = set(profiles.selected_packages(base, gs))
             self.assertEqual(profiles.profile_name(gs), 'lite-cosmic' if lite else 'standard-cosmic')
@@ -81,7 +83,7 @@ class DesktopSelection(unittest.TestCase):
 
     def test_cosmic_keeps_bluetooth_daemon_without_blueman(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
-        for lite in (False, True):
+        for lite in (False,):
             with self.subTest(lite=lite):
                 selected = profiles.selected_packages(
                     base, Storage(starchLite=lite, starchDesktop='cosmic'))
@@ -110,7 +112,7 @@ class DesktopSelection(unittest.TestCase):
                 profiles.check_cosmic_closure(bad, lite=True)
 
     def test_bootstrap_rejects_profile_changes_before_package_installation(self):
-        for gs in (Storage(starchLite=True, starchDesktop='plasma'),
+        for gs in (Storage(starchLite=False, starchDesktop='cosmic'),
                    Storage(starchLite=True, starchDesktop='xfce')):
             with tempfile.TemporaryDirectory() as directory:
                 state = Path(directory)

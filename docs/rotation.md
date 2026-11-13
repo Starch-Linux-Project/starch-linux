@@ -6,7 +6,7 @@ Automatic gyro rotation is configured for Standard (Linux LTS) only:
 | --- | --- |
 | Standard Plasma / live ISO | KWin + Qt Sensors |
 | Standard COSMIC | Starch session helper + cosmic-randr |
-| Lite Plasma, COSMIC and Xfce | No Starch automatic rotation integration |
+| Starch Lite (Xfce) | No Starch automatic rotation integration |
 
 Standard installs `iio-sensor-proxy`, using its packaged systemd/udev
 activation. Lite does not request the sensor packages or install a custom

@@ -220,7 +220,7 @@ class LiteProfile(unittest.TestCase):
         panel = (ROOT / 'packages/starch-lite/integration/root/usr/share/starch-lite/'
                  'xfce-panel.xml').read_text()
         self.assertIn('value="launcher"', panel)
-        self.assertIn('value="linux-update-utility.desktop"', panel)
+        self.assertIn('value="/usr/share/applications/linux-update-utility.desktop"', panel)
 
     def test_audio_supervisor_starts_services_in_dependency_order(self):
         package_root = ROOT / 'packages/starch-lite/integration/root'
@@ -344,19 +344,14 @@ class LiteProfile(unittest.TestCase):
         self.assertIn('liteEnabled: true',
                       (ROOT / 'calamares/modules/starchadvanced.conf').read_text())
 
-    def test_advanced_page_uses_release_lite_copy(self):
-        patch_text = (ROOT / 'packages/calamares/0005-starch-advanced-page.patch').read_text()
-        self.assertIn('Starch Lite (Special thanks to the Artix Linux team!)', patch_text)
-        self.assertIn(
-            'Desktop selection does not change the kernel or init system.',
-            patch_text)
-        self.assertIn('RAM usage can be as low as 700MB on Lite with xfce.', patch_text)
-        self.assertNotIn('experimental', patch_text.lower())
-        for presentation in ('Advanced options', 'You can skip this menu.'):
-            self.assertIn(presentation, patch_text)
-        stylesheet = (ROOT / 'calamares/branding/starch/stylesheet.qss').read_text()
-        for component in ('#advancedGate', '#advancedGateTitle', '#advancedOptions', '#profileUnavailable'):
-            self.assertIn(component, stylesheet)
+    def test_profiles_page_exposes_three_profiles_without_advanced_gate(self):
+        page = (ROOT / 'packages/calamares/0005-starch-advanced-page.patch').read_text()
+        for title in ('Installation Profiles', 'KDE Plasma LTS — Recommended',
+                      'COSMIC LTS', 'Starch Lite — For experienced users'):
+            self.assertIn(title, page)
+        for obsolete in ('QCheckBox', 'advancedGate', 'starchAdvancedAcknowledged'):
+            self.assertNotIn(obsolete, page)
+        self.assertIn('m_plasma->setChecked( true );', page)
 
     def test_repository_and_signing_selection_is_lite_only(self):
         original_is_file = Path.is_file
@@ -366,7 +361,7 @@ class LiteProfile(unittest.TestCase):
                 bundle(state / 'lite')
                 for name in ('pacman.conf', 'pacman-lite.conf'):
                     (state / name).write_text((ROOT / 'calamares' / name).read_text())
-                gs = Storage(starchLite=enabled, starchAdvancedAcknowledged=True,
+                gs = Storage(starchLite=enabled, starchDesktop="xfce" if enabled else "plasma",
                              firmwareType='efi', partitionChoices={'install': 'erase', 'swap': 'none'})
                 def is_file(path):
                     # Lite must work even before the live keyring exists.
@@ -453,12 +448,12 @@ class LiteProfile(unittest.TestCase):
                 else:
                     self.assertEqual(len(profiles.verified_bundle(root)), 2)
 
-    def test_missing_bundle_and_missing_acknowledgement_stop_before_disk_access(self):
+    def test_missing_bundle_stops_before_disk_access_without_advanced_gate(self):
         for acknowledged in (False, True):
             with tempfile.TemporaryDirectory() as directory, patch.object(preflight, 'DATA', Path(directory)), \
                  patch.object(preflight, 'selected_disk') as selected_disk, patch.object(preflight, 'command') as command:
                 with self.assertRaises(RuntimeError):
-                    preflight.run(Storage(starchLite=True, starchAdvancedAcknowledged=acknowledged))
+                    preflight.run(Storage(starchLite=True, starchDesktop="xfce", starchAdvancedAcknowledged=acknowledged))
                 selected_disk.assert_not_called()
                 command.assert_not_called()
 
@@ -467,12 +462,12 @@ class LiteProfile(unittest.TestCase):
             root = Path(directory)
             bundle(root / 'lite')
             (root / 'selection.json').write_text(json.dumps(dict(
-                packages=['base'], profile='lite', desktop='plasma', lite_bundle_sha256='old')))
+                packages=['base'], profile='lite-xfce', desktop='xfce', lite_bundle_sha256='old')))
             with patch.object(bootstrap, 'target', return_value=root), \
                  patch.object(bootstrap, 'DATA', root), patch.object(bootstrap, 'STATE', root), \
                  patch.object(bootstrap, 'command') as command:
                 with self.assertRaisesRegex(RuntimeError, 'changed after preflight'):
-                    bootstrap.run(Storage(starchLite=True))
+                    bootstrap.run(Storage(starchLite=True, starchDesktop="xfce"))
                 command.assert_not_called()
 
     def test_configure_lite_selects_openrc_without_systemctl(self):

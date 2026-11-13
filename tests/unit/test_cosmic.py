@@ -287,16 +287,14 @@ class CosmicTarget(unittest.TestCase):
                     os.killpg(proc.pid, signal.SIGKILL)
                     proc.wait()
 
-    def test_advanced_checkboxes_are_mutually_exclusive_and_write_one_desktop(self):
+    def test_profile_radios_are_exclusive_and_write_existing_storage_contract(self):
         page = (ROOT / 'packages/calamares/0005-starch-advanced-page.patch').read_text()
-        self.assertIn('auto* cosmic = new QCheckBox', page)
-        self.assertIn('auto* xfce = new QCheckBox', page)
-        self.assertIn('if ( checked ) m_cosmic->setChecked( false );', page)
-        self.assertIn('if ( checked ) m_xfce->setChecked( false );', page)
-        self.assertIn('if ( !checked ) m_xfce->setChecked( false );', page)
+        self.assertIn('group->setExclusive( true );', page)
+        self.assertIn('group->addButton( button );', page)
         self.assertIn('storage->insert( "starchDesktop", desktop );', page)
-        with self.assertRaises(RuntimeError):
-            profiles.validate_selection(Storage(starchLite=True, starchDesktop='cosmic', starchLiteXfce=True))
+        for legacy_xfce in (False, True):
+            with self.assertRaises(RuntimeError):
+                profiles.validate_selection(Storage(starchLite=True, starchDesktop='cosmic', starchLiteXfce=legacy_xfce))
 
 
 if __name__ == '__main__':

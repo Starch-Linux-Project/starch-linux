@@ -50,8 +50,8 @@ def validate_selection(gs):
     legacy_xfce = gs.value('starchLiteXfce') is True
     if legacy_xfce and (not is_lite(gs) or desktop != 'xfce'):
         raise RuntimeError('Contradictory Starch Lite Xfce selection.')
-    if desktop == 'xfce' and not is_lite(gs):
-        raise RuntimeError('Xfce requires Starch Lite.')
+    if (desktop, is_lite(gs)) not in {('plasma', False), ('cosmic', False), ('xfce', True)}:
+        raise RuntimeError('Unsupported installation profile. Choose KDE Plasma LTS, COSMIC LTS or Starch Lite (XFCE).')
 
 
 def selected_packages(packages, gs):
@@ -61,11 +61,6 @@ def selected_packages(packages, gs):
     if has_cosmic(gs):
         result = [p for p in result if p not in PLASMA_PACKAGES | {'nautilus', 'blueman', 'sddm', 'sddm-openrc'}]
         result.extend(COSMIC_PACKAGES)
-        if is_lite(gs):
-            # Satisfy starch-lite's init-displaymanager dependency before its
-            # local archive is installed; pacman's default provider uses dinit.
-            # cosmic.configure disables the generic service in favor of ours.
-            result.append('greetd-openrc')
     return list(dict.fromkeys(result))
 
 

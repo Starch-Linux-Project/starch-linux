@@ -1,18 +1,13 @@
 # Optional COSMIC installation
 
-COSMIC is an opt-in **Advanced** checkbox, available with Standard or Lite.
-Acknowledge the existing Advanced warning and select **Use COSMIC instead of
-KDE Plasma (Wayland)**. Selecting COSMIC clears Xfce; selecting Xfce clears
-COSMIC. Clearing both keeps Plasma. Xfce still requires Lite. Switching Lite
-off clears Xfce but retains a selected COSMIC desktop.
+Select **COSMIC LTS** directly on the **Installation Profiles** page. It installs
+the existing `standard-cosmic` configuration: Linux LTS, systemd, and COSMIC
+Greeter/greetd with the COSMIC Wayland session. KDE Plasma LTS is the default.
 
-| Selection | Profile ID | Kernel/init | Display manager |
-| --- | --- | --- | --- |
-| Default | `standard` | Linux LTS/systemd | SDDM, existing Plasma greeter |
-| Lite | `lite` | Linux Zen/OpenRC/elogind | SDDM, existing Plasma greeter |
-| Lite + Xfce | `lite-xfce` | Linux Zen/OpenRC/elogind | Existing LightDM configuration |
-| COSMIC | `standard-cosmic` | Linux LTS/systemd | COSMIC Greeter/greetd, COSMIC Wayland session |
-| Lite + COSMIC | `lite-cosmic` | Linux Zen/OpenRC/elogind | COSMIC Greeter/greetd, COSMIC Wayland session |
+Only three profiles are selectable; see [Installation Profiles](installation-profiles.md).
+The technical notes below retain historical Lite/COSMIC implementation and
+audit details. Lite/COSMIC is no longer an installable profile; its shared files
+have been retained to avoid changing the supported installation payloads.
 
 Implementation and static checks are complete; **neither COSMIC installation
 has passed fresh-VM desktop acceptance yet**. Do not describe this as tested

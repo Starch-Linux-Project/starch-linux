@@ -13,8 +13,6 @@ def run(gs):
     validate_selection(gs)
     lite_archives = []
     if is_lite(gs):
-        if gs.value('starchAdvancedAcknowledged') is not True:
-            raise RuntimeError('Acknowledge the Advanced warning before selecting Starch Lite.')
         lite_archives = verified_bundle(DATA / 'lite')
     if gs.value('partitionChoices') != {'install': 'erase', 'swap': 'none'}:
         raise RuntimeError('Only erase-disk installation without disk swap is supported.')

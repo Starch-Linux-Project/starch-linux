@@ -10,9 +10,11 @@ Before Calamares starts, choose **standard keyboard** (the default) or
 installer's text and password fields. To change modes, close and relaunch the
 installer. This choice applies only to the installer.
 
-Starch Lite's Xfce option does not include the Plasma keyboard.
+Starch Lite (Xfce) does not include the Plasma keyboard.
 
-## COSMIC (Standard and Lite)
+## COSMIC LTS
+
+Any Lite-specific implementation notes below are historical; Lite/COSMIC is no longer selectable.
 
 Both COSMIC profiles use the upstream on-screen keyboard with **manual**
 activation. Automatic activation is disabled: COSMIC OSK 1.11's

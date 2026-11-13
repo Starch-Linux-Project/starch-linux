@@ -4,26 +4,22 @@ Starch Lite is an optional configuration of Starch Linux 1.3 with the same
 identity and branding. It is included in normal builds; fresh boot and desktop
 validation remain required.
 
-In the installer's **Advanced** page, acknowledge the warning and select
-**Starch Lite**. The option defaults off.
+Select **Starch Lite — For experienced users** on the **Installation Profiles** page.
+KDE Plasma LTS is the default until another profile is selected.
 
 | Component | Lite configuration |
 | --- | --- |
 | Kernel | Linux Zen |
 | Init and sessions | Artix OpenRC and elogind |
-| Desktop | KDE Plasma Wayland by default |
-| Alternative desktop | Xfce on X11 |
+| Desktop | Xfce on X11, LightDM |
 | Boot and storage | Limine, ext4, and compressed zram swap |
 | Package sources | Artix system, world, and galaxy; Arch extra |
 
-For the additional COSMIC checkbox and its validation status, see [COSMIC](cosmic.md).
-COSMIC and Xfce are mutually exclusive; neither changes the selected init/kernel.
-
-To install Xfce, also select **Use Xfce instead of KDE Plasma (X11)**.
-This replaces Plasma for a fresh installation. Xfce uses Thunar as its file
-manager and has desktop animations, compositing, and session restoration off
-by default. Lite's Plasma defaults also reduce animations and decorative effects.
-Users can customize desktop settings after installation.
+This preserves the previous Lite + Xfce installation. Xfce uses Thunar and has
+animations, compositing, and session restoration off by default. Users can
+customize desktop settings after installation. Lite with Plasma or COSMIC is
+no longer selectable. Historical implementation details below may describe
+retained shared integration files for those former combinations.
 
 Lite provides a recovery text login on **Ctrl+Alt+F2**. Networking, audio,
 Bluetooth, and the firewall are configured through OpenRC and session services.

@@ -1,7 +1,9 @@
-# Native Advanced-page test
+# Native Installation Profiles test
 
 `advanced-selection.cpp` loads the built `starchadvanced` plugin and operates
-its actual checkboxes. It checks global storage and mutual exclusion without
+its actual radio buttons. It checks the KDE default, every pair of profile
+transitions, repeated clicks, page reuse, missing-bundle fallback, global storage
+and mutual exclusion without
 running partition or installation jobs.
 
 First build Calamares and run `bash scripts/validate/calamares-smoke.sh`, which
@@ -18,5 +20,5 @@ g++ -fPIC advanced-selection.cpp -Ilibcalamares -Ilibcalamaresui \
 QT_QPA_PLATFORM=offscreen ./advanced-selection
 ```
 
-Expected output: `Advanced plugin checkbox transitions passed.`
+Expected output: `Installation Profiles radio transitions passed.`
 This tests installer selection, not an installed desktop session.
