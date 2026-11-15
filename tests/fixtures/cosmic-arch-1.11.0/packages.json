@@ -1,0 +1,18 @@
+{
+  "cosmic-greeter": {
+    "url": "https://geo.mirror.pkgbuild.com/extra/os/x86_64/cosmic-greeter-1:1.11.0-1-x86_64.pkg.tar.zst",
+    "sha256": "b90e31e29cb617577354f9d4b2dd7235d2fd846aca45f0d0372f0baf13e7774c",
+    "version": "1:1.11.0-1"
+  },
+  "cosmic-osd": {
+    "url": "https://geo.mirror.pkgbuild.com/extra/os/x86_64/cosmic-osd-1:1.11.0-1-x86_64.pkg.tar.zst",
+    "sha256": "f75cb0e167838cd437370ab9728f700df3471b970caf747ba728c2975776b4e1",
+    "version": "1:1.11.0-1"
+  },
+  "files": {
+    "root/etc/greetd/cosmic-greeter.toml": "3533c07bca4c4403e85ac0e0fef6dab63338af6b79daf2946fda217f1fa38e60",
+    "root/usr/bin/cosmic-greeter-start": "aae988ae79c80e1c7e29288f361a39027336fc5fb08240ca93d8a16a99dbe53d",
+    "root/usr/lib/systemd/system/cosmic-greeter-daemon.service": "347e4fc3ab251d1ac62eb07837a25b9abc2792cebb7dcaa1cddb78d82b124d59",
+    "root/usr/lib/systemd/system/cosmic-greeter.service": "80b606df9a8743fcc39aba1a7cc073c82fed8173d3d6740e8a9ab8e42ae884ea"
+  }
+}

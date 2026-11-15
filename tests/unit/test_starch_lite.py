@@ -1,4 +1,6 @@
 import hashlib
+import io
+import tarfile
 import configparser
 import importlib.util
 import json
@@ -41,10 +43,16 @@ def bundle(root):
     entries = []
     for name in profiles.LITE_BUNDLE_PACKAGES:
         filename = f'{name}-1.0-1-x86_64.pkg.tar.zst'
-        content = name.encode()
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode='w') as archive:
+            data = f'pkgname = {name}\npkgver = 0.2.2-16\n'.encode()
+            member = tarfile.TarInfo('.PKGINFO')
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+        content = stream.getvalue()
         (root / filename).write_bytes(content)
         entries.append(dict(name=name, filename=filename, sha256=hashlib.sha256(content).hexdigest()))
-    (root / 'bundle.json').write_text(json.dumps(dict(format=2, repositories='artix-arch-extra', packages=entries)))
+    (root / 'bundle.json').write_text(json.dumps(dict(format=3, repositories='artix-arch-extra', packages=entries)))
     return entries
 
 
@@ -163,8 +171,9 @@ class LiteProfile(unittest.TestCase):
             self.assertEqual((root / 'etc/conf.d/lightdm').read_text(),
                              'rc_need="elogind dbus"\n')
             self.assertFalse((root / 'var/lib/sddm/state.conf').exists())
-            self.assertIn('OnlyShowIn=KDE;XFCE;',
-                          (root / 'etc/xdg/autostart/starch-audio.desktop').read_text())
+            self.assertFalse((root / 'etc/xdg/autostart/starch-audio.desktop').exists())
+            self.assertFalse((root / 'etc/xdg/kwinrc').exists())
+            self.assertFalse(any('configure-pam' in str(c) for c in calls.call_args_list))
             config = configparser.ConfigParser()
             config.read(root / 'etc/lightdm/lightdm.conf')
             self.assertEqual(config['LightDM']['sessions-directory'], '/usr/share/starch-lite/xsessions')
@@ -222,65 +231,6 @@ class LiteProfile(unittest.TestCase):
         self.assertIn('value="launcher"', panel)
         self.assertIn('value="/usr/share/applications/linux-update-utility.desktop"', panel)
 
-    def test_audio_supervisor_starts_services_in_dependency_order(self):
-        package_root = ROOT / 'packages/starch-lite/integration/root'
-        desktop = configparser.ConfigParser(interpolation=None)
-        desktop.read(package_root / 'usr/share/starch-lite/legacy-desktop-config/autostart/starch-audio.desktop')
-        entry = desktop['Desktop Entry']
-        self.assertEqual(entry['OnlyShowIn'], 'KDE;')
-        self.assertEqual(entry['TryExec'], entry['Exec'])
-        supervisor = package_root / entry['Exec'].lstrip('/')
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            binaries = root / 'bin'
-            runtime = root / 'run'
-            home = root / 'home'
-            binaries.mkdir()
-            runtime.mkdir()
-            home.mkdir()
-            service = binaries / 'audio-fake'
-            service.write_text(
-                '#!/usr/bin/python3\n'
-                'import os, pathlib, signal, sys, time\n'
-                'name = pathlib.Path(sys.argv[0]).name\n'
-                'with open(os.environ["EVENT_LOG"], "a") as log: log.write(name + "\\n")\n'
-                'signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n'
-                'while True: time.sleep(1)\n')
-            service.chmod(0o755)
-            for name in ('pipewire', 'pipewire-pulse', 'wireplumber'):
-                (binaries / name).symlink_to(service)
-            for name in ('pw-cli', 'pactl'):
-                probe = binaries / name
-                probe.write_text('#!/bin/sh\nexit 0\n')
-                probe.chmod(0o755)
-            events = root / 'events'
-            env = os.environ | {
-                'PATH': f'{binaries}:/usr/bin', 'HOME': str(home),
-                'XDG_RUNTIME_DIR': str(runtime), 'EVENT_LOG': str(events),
-            }
-            process = subprocess.Popen([supervisor], env=env)
-            log = home / '.local/state/starch/audio-session.log'
-            try:
-                deadline = time.monotonic() + 8
-                while time.monotonic() < deadline:
-                    if log.is_file() and 'are ready' in log.read_text():
-                        break
-                    time.sleep(0.1)
-                self.assertIn('are ready', log.read_text())
-                # Plasma autostart must be harmless when the wrapper already
-                # owns the stack, and must not terminate that owner's children.
-                duplicate = subprocess.run([supervisor], env=env, timeout=3)
-                self.assertEqual(duplicate.returncode, 0)
-                self.assertIsNone(process.poll())
-                self.assertEqual(events.read_text().splitlines(),
-                                 ['pipewire', 'pipewire-pulse', 'wireplumber'])
-            finally:
-                process.terminate()
-                process.wait(timeout=8)
-            self.assertIn('are ready', log.read_text())
-            self.assertEqual(events.read_text().splitlines()[:3],
-                             ['pipewire', 'pipewire-pulse', 'wireplumber'])
-
     def test_plasma_wrapper_reports_invalid_runtime(self):
         wrapper = ROOT / 'packages/starch-lite/integration/root/usr/lib/starch-lite/plasma-session'
         with tempfile.TemporaryDirectory() as directory:
@@ -298,41 +248,6 @@ class LiteProfile(unittest.TestCase):
             result = subprocess.run([wrapper], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
             self.assertIn('did not set XDG_RUNTIME_DIR', result.stderr)
-
-    def test_audio_shutdown_survives_hung_readiness_probe(self):
-        supervisor = ROOT / 'packages/starch-lite/integration/root/usr/lib/starch-lite/audio-session'
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            binaries = root / 'bin'
-            binaries.mkdir()
-            # Exec sleep so the fake does not leave shell grandchildren behind.
-            for name in ('pipewire', 'pw-cli'):
-                binary = binaries / name
-                binary.write_text('#!/bin/sh\necho $$ > "$TEST_ROOT/' + name + '.pid"\nexec sleep 60\n')
-                binary.chmod(0o755)
-            env = os.environ | {'PATH': f'{binaries}:/usr/bin', 'HOME': directory,
-                                'XDG_RUNTIME_DIR': directory, 'TEST_ROOT': directory}
-            process = subprocess.Popen([supervisor], env=env)
-            try:
-                deadline = time.monotonic() + 5
-                while not (root / 'pw-cli.pid').exists() and time.monotonic() < deadline:
-                    time.sleep(0.05)
-                self.assertTrue((root / 'pw-cli.pid').exists())
-                process.terminate()
-                process.wait(timeout=6)
-                self.assertEqual(process.returncode, 0)
-                for name in ('pipewire', 'pw-cli'):
-                    pid = int((root / (name + '.pid')).read_text())
-                    self.assertFalse(Path(f'/proc/{pid}').exists(), name)
-            finally:
-                if process.poll() is None:
-                    process.kill()
-                    process.wait()
-                for pid_file in root.glob('*.pid'):
-                    try:
-                        os.kill(int(pid_file.read_text()), 9)
-                    except ProcessLookupError:
-                        pass
 
     def test_normal_iso_build_always_builds_and_stages_lite(self):
         build = (ROOT / 'build.sh').read_text()
@@ -439,7 +354,7 @@ class LiteProfile(unittest.TestCase):
                     archive.symlink_to('/etc/passwd')
                 elif invalid == 'package-set':
                     entries.pop()
-                (root / 'bundle.json').write_text(json.dumps(dict(format=2, repositories='artix-arch-extra', packages=entries)))
+                (root / 'bundle.json').write_text(json.dumps(dict(format=3, repositories='artix-arch-extra', packages=entries)))
                 if invalid == 'old-format':
                     (root / 'bundle.json').write_text(json.dumps(dict(format=1, packages=entries)))
                 if invalid:
@@ -568,6 +483,12 @@ class LiteProfile(unittest.TestCase):
             self.assertIn('true', (fs / 'etc/calamares/modules/starchadvanced.conf').read_text())
             self.assertEqual(len(profiles.verified_bundle(fs / 'usr/share/starch-installer/lite')), 2)
             self.assertFalse((fs / 'usr/bin/openrc-init').exists())
+            stale = fs / 'usr/share/starch-installer/lite/starch-lite-old.pkg.tar.zst'
+            stale.touch()
+            stage.stage_lite(fs, root / 'repo')
+            self.assertFalse(stale.exists())
+            stage.stage_lite(fs, None)
+            self.assertFalse((fs / 'usr/share/starch-installer/lite').exists())
 
 
 if __name__ == '__main__':

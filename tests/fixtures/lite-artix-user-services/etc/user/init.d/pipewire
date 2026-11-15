@@ -1,0 +1,15 @@
+#!/usr/bin/openrc-run
+# Copyright 1999-2025 Gentoo Authors
+# Copyright 2026      Artix Linux maintainers
+# Distributed under the terms of the GNU General Public License, v2 or later
+
+depend() {
+    need dbus
+}
+
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+export PIPEWIRE_NOTIFICATION_FD=3
+
+supervisor=supervise-daemon
+notify=fd:3
+command="/usr/bin/pipewire"

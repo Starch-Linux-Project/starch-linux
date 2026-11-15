@@ -41,6 +41,21 @@ def add_media_desktops(root):
         '[Desktop Entry]\nType=Application\nMimeType=image/png;image/jpeg;image/gif;\n')
 
 
+ARCH_FIXTURE = ROOT / 'tests/fixtures/cosmic-arch-1.11.0/root'
+
+
+def add_vendor_files(root):
+    # Unmodified files extracted from the reviewed official Arch archive.
+    shutil.copytree(ARCH_FIXTURE, root, dirs_exist_ok=True)
+    (root / 'etc/pam.d').mkdir(parents=True, exist_ok=True)
+
+
+def copy_cosmic_overlay(root, is_lite):
+    shutil.copytree(ROOT / 'packages/starch-cosmic/root', root, dirs_exist_ok=True)
+    if is_lite:
+        shutil.copytree(ROOT / 'packages/starch-cosmic/lite-root', root, dirs_exist_ok=True)
+
+
 class CosmicTarget(unittest.TestCase):
     def test_staged_defaults_are_selected_before_user_creation_and_leave_live_unchanged(self):
         stage = load_module('cosmic_stage', ROOT / 'scripts/build/stage-installer.py')
@@ -50,6 +65,17 @@ class CosmicTarget(unittest.TestCase):
             shutil.copytree(ROOT / 'archiso/profile', profile, symlinks=True)
             stage.stage(profile)
             data = profile / 'airootfs/usr/share/starch-installer'
+            retired = ('etc/pam.d/cosmic-greeter',
+                       'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop',
+                       'etc/systemd/system/cosmic-greeter.service',
+                       'etc/systemd/system/cosmic-greeter-daemon.service')
+            for name in retired:
+                stale = data / 'desktop-overlays/cosmic' / name
+                stale.parent.mkdir(parents=True, exist_ok=True)
+                stale.write_text('obsolete')
+            stage.stage(profile)
+            for name in retired:
+                self.assertFalse((data / 'desktop-overlays/cosmic' / name).exists())
             self.assertEqual((data / 'rotation-overlay/usr/lib/starch/rotation.py').read_bytes(),
                              (ROOT / 'packages/starch-rotation/root/usr/lib/starch/rotation.py').read_bytes())
             self.assertEqual((profile / 'airootfs/usr/lib/starch-installer/cosmic.py').read_bytes(),
@@ -86,6 +112,9 @@ class CosmicTarget(unittest.TestCase):
                 osk = root / 'etc/skel/.local/state/cosmic/com.system76.CosmicOSK/v1/ime_activation'
                 self.assertEqual(osk.is_file(), desktop == 'cosmic')
                 if desktop == 'cosmic':
+                    for name in ('etc/pam.d/cosmic-greeter',
+                                 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop'):
+                        self.assertEqual((root / name).exists(), init)
                     self.assertEqual(osk.read_text().strip(), 'false')
                     defaults = configparser.ConfigParser(interpolation=None)
                     defaults.read(root / media_defaults.MIMEAPPS)
@@ -108,7 +137,8 @@ class CosmicTarget(unittest.TestCase):
         for is_lite in (False, True):
             with self.subTest(lite=is_lite), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                shutil.copytree(ROOT / 'packages/starch-cosmic/root', root, dirs_exist_ok=True)
+                add_vendor_files(root)
+                copy_cosmic_overlay(root, is_lite)
                 session = root / 'usr/share/wayland-sessions/cosmic.desktop'
                 session.parent.mkdir(parents=True)
                 session.write_text('[Desktop Entry]\nExec=/usr/bin/start-cosmic\nDesktopNames=COSMIC\n')
@@ -132,6 +162,14 @@ class CosmicTarget(unittest.TestCase):
                 self.assertEqual(config['default_session']['user'], 'cosmic-greeter')
                 self.assertEqual(config['general']['service'], 'starch-greetd')
                 self.assertNotIn('initial_session', config)
+                # Leave greetd's greeter-service fallback behavior unchanged.
+                self.assertNotIn('service', config['default_session'])
+                pam = (root / 'etc/pam.d/starch-greetd').read_text().splitlines()
+                self.assertEqual(pam, [
+                    'auth include system-local-login', 'auth optional pam_gnome_keyring.so',
+                    'account include system-local-login', 'password include system-local-login',
+                    'session include system-local-login',
+                    'session optional pam_gnome_keyring.so auto_start'])
                 self.assertFalse((root / 'etc/sddm.conf').exists())
                 self.assertFalse((root / 'etc/sddm.conf.d/10-starch.conf').exists())
                 self.assertIn('session include system-local-login',
@@ -166,7 +204,8 @@ class CosmicTarget(unittest.TestCase):
         for is_lite in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                shutil.copytree(ROOT / 'packages/starch-cosmic/root', root, dirs_exist_ok=True)
+                add_vendor_files(root)
+                copy_cosmic_overlay(root, is_lite)
                 home = root / 'home/test'
                 shutil.copytree(root / 'etc/skel', home)
                 for name in ('usr/share/wayland-sessions/cosmic.desktop',
@@ -207,6 +246,28 @@ class CosmicTarget(unittest.TestCase):
                     calls.assert_any_call(root, *credentials, 'test', '-x', cosmic.GREETER_COMMAND)
                     calls.assert_any_call(root, *credentials, 'sh', '-n', cosmic.GREETER_COMMAND)
                     self.assertFalse(any('runuser' in c.args for c in calls.call_args_list))
+                    if not is_lite:
+                        calls.assert_any_call(root, 'test', '-r', '/etc/pam.d/login')
+                        calls.assert_any_call(root, 'test', '-x', '/usr/bin/cosmic-osd')
+                        calls.assert_any_call(root, 'test', '/etc/systemd/system/display-manager.service',
+                                              '-ef', '/usr/lib/systemd/system/cosmic-greeter.service')
+                        for removed in ('auth include system-local-login',
+                                        'account include system-local-login',
+                                        'session include system-local-login',
+                                        'auth optional pam_gnome_keyring.so',
+                                        'session optional pam_gnome_keyring.so auto_start'):
+                            pam_path = root / 'etc/pam.d/starch-greetd'
+                            original = pam_path.read_text()
+                            pam_path.write_text(original.replace(removed, '# missing'))
+                            with self.assertRaisesRegex(RuntimeError, 'PAM'):
+                                cosmic.validate(root, home)
+                            pam_path.write_text(original)
+                        agent = root / 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop'
+                        agent.parent.mkdir(parents=True, exist_ok=True)
+                        agent.write_text('[Desktop Entry]')
+                        with self.assertRaisesRegex(RuntimeError, 'Redundant GNOME polkit'):
+                            cosmic.validate(root, home)
+                        agent.unlink()
                     foreign = root / cosmic.SESSION_DIR / 'starch-lite.desktop'
                     foreign.write_text('[Desktop Entry]\nExec=startplasma-wayland\n')
                     with self.assertRaisesRegex(RuntimeError, 'only the installed COSMIC session'):
@@ -231,12 +292,13 @@ class CosmicTarget(unittest.TestCase):
         for is_lite in (False, True):
             with self.subTest(lite=is_lite), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
+                add_vendor_files(root)
                 desktop = root / cosmic.SESSION_DIR / 'cosmic.desktop'
                 desktop.parent.mkdir(parents=True)
                 desktop.write_text('[Desktop Entry]\nExec=/usr/bin/start-cosmic\n')
                 # Match installed package parents before Calamares creates its
                 # target-only launcher directory under a private umask.
-                (root / 'usr/lib').mkdir(parents=True)
+                (root / 'usr/lib').mkdir(parents=True, exist_ok=True)
                 previous = os.umask(0o077)
                 try:
                     with patch.object(cosmic, 'chroot'):
@@ -252,6 +314,7 @@ class CosmicTarget(unittest.TestCase):
     def test_native_greeter_can_be_enabled_as_systemd_display_manager(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            add_vendor_files(root)
             desktop = root / cosmic.SESSION_DIR / 'cosmic.desktop'
             desktop.parent.mkdir(parents=True)
             desktop.write_text('[Desktop Entry]\nExec=/usr/bin/start-cosmic\n')
@@ -273,8 +336,35 @@ class CosmicTarget(unittest.TestCase):
             for manager in ('sddm', 'lightdm', 'greetd'):
                 self.assertEqual((root / ('etc/systemd/system/' + manager + '.service')).readlink(),
                                  Path('/dev/null'))
-            self.assertIn('Requires=cosmic-greeter-daemon.service',
-                          (root / 'etc/systemd/system/cosmic-greeter.service').read_text())
+            self.assertEqual(str(alias.readlink()), '/usr/lib/systemd/system/cosmic-greeter.service')
+            for unit in ('cosmic-greeter.service', 'cosmic-greeter-daemon.service'):
+                self.assertFalse((root / 'etc/systemd/system' / unit).exists())
+                self.assertEqual((root / 'usr/lib/systemd/system' / unit).read_bytes(),
+                                 (ARCH_FIXTURE / 'usr/lib/systemd/system' / unit).read_bytes())
+            vendor = (root / 'usr/lib/systemd/system/cosmic-greeter.service').read_text()
+            self.assertIn('Wants=cosmic-greeter-daemon.service', vendor)
+            self.assertIn('kmsconvt@tty1.service', vendor)
+
+    def test_vendor_units_reject_missing_files_and_preserve_local_overrides(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, 'Missing packaged'):
+                cosmic.validate_vendor_units(root)
+            add_vendor_files(root)
+            cosmic.validate_vendor_units(root)
+            for directory in ('etc/systemd/system', 'run/systemd/system'):
+                override = root / directory / 'cosmic-greeter.service'
+                override.parent.mkdir(parents=True, exist_ok=True)
+                override.write_text('administrator configuration')
+                with self.assertRaisesRegex(RuntimeError, 'Review existing'):
+                    cosmic.validate_vendor_units(root)
+                self.assertEqual(override.read_text(), 'administrator configuration')
+                override.unlink()
+                override.symlink_to('/nonexistent')
+                with self.assertRaisesRegex(RuntimeError, 'Review existing'):
+                    cosmic.validate_vendor_units(root)
+                self.assertTrue(override.is_symlink())
+                override.unlink()
 
     def test_lite_cosmic_never_applies_plasma_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -296,9 +386,8 @@ class CosmicTarget(unittest.TestCase):
             self.assertFalse(any('systemctl' in call.args for call in calls.call_args_list))
 
     def test_legacy_lite_defaults_are_byte_for_byte_preserved(self):
-        # Snapshot of the pre-COSMIC defaults; independent of repository HEAD.
+        # Snapshot of desktop preferences; the retired Lite audio launcher is excluded.
         expected = {
-            'autostart/starch-audio.desktop': '58e6b43a2bce6fb97bc7511daad890a594ba3ff0b6a448f3406c5929f1c56c31',
             'breezerc': '31b65f1205f438fa1e4de5cbdc2e668f8adda66d26cd63461ba65bcbf1b45f6b',
             'kalendaracrc': 'eda5a82185425485dc3d4e1767117848033d9e495efa8ae0941a202fc3d5ff33',
             'kdeglobals': '22c69c1a3f7ab4125df2a201d93d35e611f534b6c478aa809331ebd37eea83a5',

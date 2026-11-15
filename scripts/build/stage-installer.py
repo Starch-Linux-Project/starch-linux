@@ -122,6 +122,9 @@ def stage_luu(fs, input_dir=None):
 def stage_lite(fs, input_dir):
     config = fs / 'etc/calamares/modules/starchadvanced.conf'
     config.write_text('liteEnabled: false\n')
+    destination = fs / 'usr/share/starch-installer/lite'
+    if destination.exists():
+        shutil.rmtree(destination)
     if input_dir is None:
         return
     sys.path.insert(0, str(SOURCE / 'scripts/installer'))
@@ -192,6 +195,12 @@ def stage(profile, luu_input=None, wallpaper_input=None, lite_input=None):
     shutil.copyfile(SOURCE / 'calamares/branding/starch/starchlinux.png',
                     overlay / 'usr/share/plymouth/themes/starch/logo.png')
     for desktop in ('cosmic', 'cosmic-lite'):
+        # Rebuild this generated overlay so retired PAM/autostart files and
+        # old unit overrides cannot survive re-staging an existing snapshot.
+        if desktop == 'cosmic':
+            destination = data / 'desktop-overlays' / desktop
+            if destination.exists():
+                shutil.rmtree(destination)
         source = SOURCE / 'packages/starch-cosmic' / ('root' if desktop == 'cosmic' else 'lite-root')
         shutil.copytree(source, data / 'desktop-overlays' / desktop, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))

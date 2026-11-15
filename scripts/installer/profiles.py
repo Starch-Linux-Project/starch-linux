@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 
 
 LITE_PACKAGES = ('starch-lite',)
@@ -94,7 +95,7 @@ COSMIC_PACKAGES = (
     'cosmic-randr', 'cosmic-screenshot', 'cosmic-osk', 'cosmic-store', 'cosmic-viewer',
     'cosmic-terminal', 'cosmic-text-editor', 'xdg-desktop-portal-cosmic',
     'xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xorg-xwayland',
-    'xorg-server', 'xorg-xauth', 'polkit-gnome', 'gnome-keyring', 'xdg-user-dirs',
+    'xorg-server', 'xorg-xauth', 'gnome-keyring', 'xdg-user-dirs',
     # COSMIC replaces Blueman's UI, but configure still enables bluetooth.service.
     # Its battery applet uses power-profiles-daemon for profile selection.
     'bluez', 'power-profiles-daemon', 'greetd', 'python-gobject', 'libnotify',
@@ -122,11 +123,16 @@ def check_cosmic_closure(resolved, lite=False):
     # These components define the defaults and non-systemd startup we inspected.
     for name in ('cosmic-session', 'cosmic-comp', 'cosmic-panel', 'cosmic-applets',
                  'cosmic-bg', 'cosmic-settings', 'cosmic-settings-daemon', 'cosmic-greeter',
-                 'cosmic-osk', 'cosmic-randr',
+                 'cosmic-osk', 'cosmic-randr', 'cosmic-osd',
                  'xdg-desktop-portal-cosmic'):
         repo, version = by_name[name]
         if version.split(':')[-1].rsplit('-', 1)[0] != '1.11.0':
             raise RuntimeError(f'Review COSMIC defaults/startup for {name} {version} before installing.')
+        # Package release changes can change Arch's locker PAM patch or OSD
+        # agent behavior even when the upstream version is unchanged.
+        if not lite and name in ('cosmic-greeter', 'cosmic-osd'):
+            if repo != 'extra' or version != '1:1.11.0-1':
+                raise RuntimeError(f'Review Arch COSMIC authentication packaging: {name} {repo}/{version}')
         if lite and repo not in ('system', 'world', 'galaxy'):
             raise RuntimeError(f'Lite requires the maintained Artix build of {name}, got {repo}.')
 
@@ -140,6 +146,7 @@ def lite_packages(packages, xfce=False):
     result = [replacements.get(p, p) for p in packages if p not in {'zram-generator', 'iio-sensor-proxy', 'qt6-sensors'}]
     repository_packages = list(LITE_REPOSITORY_PACKAGES)
     if xfce:
+        repository_packages.extend(('pipewire-openrc', 'pipewire-pulse-openrc', 'wireplumber-openrc'))
         replacements = {'sddm': 'lightdm', 'sddm-openrc': 'lightdm-openrc'}
         result = [replacements.get(p, p) for p in result]
         repository_packages = [replacements.get(p, p) for p in repository_packages]
@@ -162,7 +169,7 @@ def verified_bundle(directory):
     try:
         bundle = json.loads(manifest.read_text())
         entries = bundle['packages']
-        if (bundle['format'] != 2 or bundle['repositories'] != 'artix-arch-extra'
+        if (bundle['format'] != 3 or bundle['repositories'] != 'artix-arch-extra'
                 or [e['name'] for e in entries] != list(LITE_BUNDLE_PACKAGES)):
             raise ValueError('unexpected bundle format or package set')
         result = []
@@ -176,7 +183,23 @@ def verified_bundle(directory):
                 raise ValueError('package must be a regular file')
             if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                 raise ValueError(f'checksum mismatch: {filename}')
+            if name == "starch-lite":
+                verify_lite_archive(path)
             result.append(path)
         return result
     except (KeyError, TypeError, ValueError) as error:
         raise RuntimeError(f'Invalid Starch Lite bundle: {error}') from error
+
+
+def verify_lite_archive(path):
+    """Inspect the archive, not just its filename or self-reported bundle hash."""
+    try:
+        info = subprocess.check_output(['bsdtar', '-xOf', str(path), '.PKGINFO'], text=True, timeout=30)
+        names = subprocess.check_output(['bsdtar', '-tf', str(path)], text=True, timeout=30).splitlines()
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError(f'Cannot inspect Lite archive: {path}') from error
+    if 'pkgname = starch-lite\n' not in info or 'pkgver = 0.2.2-16\n' not in info:
+        raise RuntimeError('Obsolete or unreviewed Lite package; rebuild the bundle (expected 0.2.2-16).')
+    forbidden = {'audio-session', 'starch-audio.desktop', 'configure-pam', '95-starch-lite-pam.hook'}
+    if any(Path(name.rstrip('/')).name in forbidden for name in names):
+        raise RuntimeError('Lite archive contains retired audio/PAM integration.')

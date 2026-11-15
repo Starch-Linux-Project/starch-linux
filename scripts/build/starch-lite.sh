@@ -18,13 +18,14 @@ for path in "$repo_root/build" "$build_root" "$chroot_dir" "$output_dir"; do
     [[ ! -L $path && ( ! -e $path || -d $path ) ]] || { echo "Unsafe build path: $path" >&2; exit 1; }
 done
 input_hash=$(
-    find "$package_dir" "$helper" "$repo_root/scripts/build/starch-lite.sh" -type f -print0 |
+    find "$package_dir" "$helper" "$repo_root/scripts/build/starch-lite.sh" "$repo_root/scripts/installer/profiles.py" -type f -print0 |
         sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1
 )
 [[ $1 != --check ]] || exit 0
 if [[ $1 == --ensure && -f $output_dir/INPUT_SHA256 && -f $output_dir/SHA256SUMS ]] &&
     [[ $(<"$output_dir/INPUT_SHA256") == "$input_hash" ]] &&
     (cd "$output_dir" && sha256sum -c SHA256SUMS >/dev/null); then
+    PYTHONPATH="$repo_root/scripts/installer" python3 -c 'import sys; from profiles import verified_bundle; verified_bundle(sys.argv[1])' "$output_dir"
     echo 'Reusing verified Starch Lite package bundle.'
     exit 0
 fi
@@ -78,7 +79,8 @@ for name in ('starch-lite', 'artix-keyring'):
         raise SystemExit(f'Unexpected package identity: {archive.name}')
     packages.append(dict(name=name, filename=archive.name,
                          sha256=hashlib.sha256(archive.read_bytes()).hexdigest()))
-(root / 'bundle.json').write_text(json.dumps(dict(format=2, repositories='artix-arch-extra', packages=packages), indent=2) + '\n')
+(root / 'bundle.json').write_text(json.dumps(dict(format=3, repositories='artix-arch-extra', packages=packages), indent=2) + '\n')
 PY
+PYTHONPATH="$repo_root/scripts/installer" python3 -c 'import sys; from profiles import verified_bundle; verified_bundle(sys.argv[1])' "$output_dir"
 (cd "$output_dir" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 echo "Starch Lite development bundle ready: $output_dir"

@@ -85,6 +85,23 @@ class DesktopSelection(unittest.TestCase):
             self.assertEqual('dbus-broker-units' in selected, not lite)
             self.assertTrue({'firefox', 'flatpak', 'nftables', 'networkmanager'} <= selected)
 
+    def test_arch_authentication_package_release_requires_review(self):
+        resolved = '\n'.join('extra ' + name + ' 1:1.11.0-1'
+                             for name in profiles.COSMIC_PACKAGES)
+        profiles.check_cosmic_closure(resolved)
+        for name in ('cosmic-greeter', 'cosmic-osd'):
+            for replacement in (f'extra {name} 1:1.11.0-2', f'custom {name} 1:1.11.0-1'):
+                changed = resolved.replace(f'extra {name} 1:1.11.0-1', replacement)
+                with self.assertRaisesRegex(RuntimeError, 'authentication packaging'):
+                    profiles.check_cosmic_closure(changed)
+        base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
+        cosmic = profiles.selected_packages(base, Storage(starchDesktop='cosmic'))
+        xfce = profiles.selected_packages(base, Storage(starchLite=True, starchDesktop='xfce'))
+        self.assertNotIn('polkit-gnome', cosmic)
+        self.assertIn('polkit-gnome', xfce)
+        self.assertIn('gnome-keyring', cosmic)
+        self.assertIn('cosmic-osd', cosmic)
+
     def test_cosmic_keeps_bluetooth_daemon_without_blueman(self):
         base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
         for lite in (False,):

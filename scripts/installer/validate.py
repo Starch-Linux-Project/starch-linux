@@ -57,6 +57,8 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
+    if has_xfce(gs):
+        lite.validate_user_runlevels(root, home, int(users[username][2]), int(users[username][3]))
     if has_cosmic(gs):
         cosmic.validate(root, home, lite=is_lite(gs))
     elif not has_xfce(gs):

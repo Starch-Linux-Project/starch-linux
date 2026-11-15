@@ -113,7 +113,7 @@ Preserve these boundaries unless the task explicitly changes them:
 | `scripts/build/calamares*.sh` | Isolated Calamares package construction and chroot operations. |
 | `scripts/build/starch-lite*.sh` | Lite integration package and verified bundle construction. |
 | `packages/calamares/` | Pinned PKGBUILD and Starch patches to upstream Calamares. |
-| `packages/starch-lite/integration/` | Lite integration PKGBUILD, OpenRC services, PAM/session integration, and Xfce defaults. |
+| `packages/starch-lite/integration/` | Lite integration PKGBUILD, OpenRC banner/zram services and Xfce defaults; audio uses upstream Artix services. |
 | `packages/starch-lite/artix-keyring.json` | Pinned bootstrap keyring source and checksum. |
 | `packages/starch-cosmic/root/` | Supported COSMIC target overlay and account defaults. |
 | `packages/starch-cosmic/lite-root/` | Compatibility material; not a separately supported selectable profile. |
@@ -311,10 +311,12 @@ selection vendor-based and conservative for unknown input.
 
 ### Lite bundle and trust
 
-- The current bundle format is `2`, with repository identity
+- The current bundle format is `3`, with repository identity
   `artix-arch-extra` and the expected `starch-lite` and `artix-keyring` entries.
 - Verify allowed package names, basenames, regular-file status, non-symlink
-  inputs, and SHA-256 checksums before using a bundle.
+  inputs, and SHA-256 checksums before using a bundle. Inspect the actual Lite
+  archive identity (`0.2.2-16`) and reject retired audio/PAM payloads. Update the
+  reviewed package version in `profiles.verify_lite_archive()` on package releases.
 - Preserve the pinned Artix keyring acquisition record and checksum.
 - Lite trust initialization is isolated; it must not populate or weaken the
   live Arch signing database.
@@ -372,6 +374,17 @@ Installed-system autologin must remain disabled and validated.
 COSMIC uses greetd/COSMIC Greeter and dedicated overlay defaults. Preserve the
 separation from Plasma and Lite display managers, sessions, and configuration.
 
+COSMIC LTS uses Arch's vendor greeter units, with no full `/etc` replacements or
+Starch service drop-ins. Keep the custom greeter launcher provisionally until its
+bus/environment equivalence is tested; retain scoped `starch-greetd` PAM/keyring
+integration. The reviewed Arch greeter 1:1.11.0-1 selects `login` for locking via
+its packaging revert. COSMIC OSD supplies polkit; the GNOME fallback and unused
+lock PAM overlay now live only in the dormant `lite-root` compatibility input.
+Arch greeter/OSD package releases are audited exactly before fresh installation.
+Do not turn installer configuration into an installed-system migration. See
+`docs/cosmic.md` and the reversible procedure in `docs/cosmic-migration.md`.
+
+
 The on-screen keyboard uses manual activation. Its default is the `false` value
 at `/etc/skel/.local/state/cosmic/com.system76.CosmicOSK/v1/ime_activation`.
 This is a state path, not a `.config` path. Validate that it reaches the created
@@ -379,10 +392,16 @@ user's home and preserve subsequent user changes.
 
 ### Lite
 
-Lite uses OpenRC/elogind, LightDM, Xfce, Thunar, and session-managed audio.
-Implement service changes through Lite's OpenRC integration, not unconditional
-`systemctl` operations. Preserve service ordering, cleanup of hung audio probes,
-PAM integration, and the recovery text login. Xfce compositing and session
+Lite uses OpenRC/elogind, LightDM, Xfce, Thunar, and Artix OpenRC user audio
+services. Select pipewire-openrc, pipewire-pulse-openrc, wireplumber-openrc and
+dbus-openrc. Seed ~/.config/rc/runlevels before account creation: dbus in boot,
+audio services in default. Upstream pam_elogind and pam_openrc establish the
+runtime directory and user-manager lifecycle. Do not restore the retired audio
+supervisor, audio autostart, PAM helper or pacman hook. Validate the actual
+user's runlevels/ownership and upstream PAM/service files without rewriting
+them. Offline checks do not establish login/recovery/logout behavior: follow
+docs/starch-lite-audio-migration.md in a disposable VM. Preserve the recovery
+text login. Xfce compositing and session
 restoration are off by default; account initialization should respect existing
 user settings.
 

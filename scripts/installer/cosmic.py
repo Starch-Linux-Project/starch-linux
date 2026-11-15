@@ -12,10 +12,28 @@ PINS = ('firefox', 'com.system76.CosmicFiles', 'com.system76.CosmicTerm',
 GREETER_COMMAND = '/usr/lib/starch-cosmic/greeter'
 
 
+def validate_vendor_units(root):
+    """Fresh installs must use pacman's units, not a stale full override.
+
+    This is not an existing-system migration: leave any override untouched and
+    fail with a review request instead of deleting administrator configuration.
+    """
+    for unit in ('cosmic-greeter.service', 'cosmic-greeter-daemon.service'):
+        vendor = root / 'usr/lib/systemd/system' / unit
+        if not vendor.is_file() or vendor.is_symlink():
+            raise RuntimeError('Missing packaged COSMIC unit: ' + unit)
+        for directory in ('etc/systemd/system', 'run/systemd/system'):
+            override = root / directory / unit
+            if override.exists() or override.is_symlink():
+                raise RuntimeError('Review existing COSMIC unit override before installation: ' + str(override))
+
+
 def configure(root, lite=False):
-    # Package hooks can defer sysusers/tmpfiles setup in a chroot. The greeter
-    # account and its owned directories must exist before validation and login,
-    # rather than waiting for OpenRC's first-boot setup services.
+    if not lite:
+        validate_vendor_units(root)
+    # Arch's package hooks normally create these already. Repeat the scoped,
+    # idempotent setup as an installer ordering safeguard before validation.
+    # The dormant OpenRC path also needs these before its first boot.
     chroot(root, 'esysusers' if lite else 'systemd-sysusers',
            '/usr/lib/sysusers.d/cosmic-greeter.conf')
     chroot(root, 'etmpfiles' if lite else 'systemd-tmpfiles', '--create',
@@ -40,6 +58,8 @@ def configure(root, lite=False):
         'auth include system-local-login\nauth optional pam_gnome_keyring.so\n'
         'account include system-local-login\npassword include system-local-login\n'
         'session include system-local-login\nsession optional pam_gnome_keyring.so auto_start\n')
+    # Retained provisionally: upstream launcher equivalence for the private
+    # bus, greeter environment and diagnostics needs a booted COSMIC test.
     # Calamares may use a restrictive umask. greetd executes this as its
     # unprivileged account, so the directory must also permit traversal.
     launcher_dir = root / 'usr/lib/starch-cosmic'
@@ -65,18 +85,6 @@ def configure(root, lite=False):
                 'depend() {\n    need ' + needs + '\n    after bootmisc\n}\n', mode=0o755)
             chroot(root, 'rc-update', 'add', name, 'default')
     else:
-        put(root, 'etc/systemd/system/cosmic-greeter-daemon.service',
-            '[Unit]\nDescription=COSMIC Greeter user helper\nAfter=dbus.service\n'
-            '\n[Service]\nType=dbus\nBusName=com.system76.CosmicGreeter\n'
-            'ExecStart=/usr/bin/cosmic-greeter-daemon\nRestart=on-failure\n')
-        put(root, 'etc/systemd/system/cosmic-greeter.service',
-            '[Unit]\nDescription=COSMIC Greeter\n'
-            'After=systemd-user-sessions.service plymouth-quit-wait.service cosmic-greeter-daemon.service\n'
-            'Requires=cosmic-greeter-daemon.service\nAfter=getty@tty1.service\nConflicts=getty@tty1.service\n'
-            '\n[Service]\nExecStart=/usr/bin/greetd --config /etc/greetd/cosmic-greeter.toml\n'
-            'Restart=always\nRestartSec=3\nIgnoreSIGPIPE=no\nSendSIGHUP=yes\n'
-            'TimeoutStopSec=30\nKeyringMode=shared\n'
-            '\n[Install]\nAlias=display-manager.service\n')
         # Only our configured greetd instance owns the seat.
         chroot(root, 'systemctl', 'mask', 'greetd.service', 'sddm.service', 'lightdm.service')
         chroot(root, 'systemctl', 'enable', '--force', 'cosmic-greeter.service')
@@ -93,7 +101,11 @@ def validate(root, home, lite=False):
             or 'initial_session' in config):
         raise RuntimeError('COSMIC Greeter must own tty1 and require authenticated login.')
     pam = (root / 'etc/pam.d/starch-greetd').read_text()
-    if 'session include system-local-login' not in pam or 'pam_gnome_keyring.so auto_start' not in pam:
+    required_pam = ('auth include system-local-login', 'account include system-local-login',
+                    'password include system-local-login', 'session include system-local-login',
+                    'auth optional pam_gnome_keyring.so',
+                    'session optional pam_gnome_keyring.so auto_start')
+    if any(line not in pam.splitlines() for line in required_pam):
         raise RuntimeError('COSMIC login PAM session/keyring integration is missing.')
     # Check access as the greeter without opening a PAM login session inside
     # the offline target. Lite requires pam_elogind in system-login (also used
@@ -101,6 +113,11 @@ def validate(root, home, lite=False):
     # Root's executable check alone would miss inaccessible parent directories.
     credentials = ('setpriv', '--reuid=cosmic-greeter', '--regid=cosmic-greeter',
                    '--init-groups', '--')
+    chroot(root, 'getent', 'passwd', 'cosmic-greeter')
+    chroot(root, 'getent', 'group', 'cosmic-greeter')
+    for directory in ('/var/lib/cosmic-greeter', '/run/cosmic-greeter'):
+        chroot(root, *credentials, 'test', '-d', directory)
+        chroot(root, *credentials, 'test', '-O', directory)
     chroot(root, *credentials, 'test', '-x', GREETER_COMMAND)
     chroot(root, *credentials, 'sh', '-n', GREETER_COMMAND)
     sessions = {p.name for p in (root / SESSION_DIR).glob('*.desktop')}
@@ -139,15 +156,18 @@ def validate(root, home, lite=False):
         raise RuntimeError('Plasma startup configuration leaked into COSMIC.')
     for executable in ('/usr/bin/start-cosmic', '/usr/bin/cosmic-session', '/usr/bin/cosmic-comp',
                        '/usr/bin/cosmic-greeter', '/usr/bin/cosmic-greeter-daemon', '/usr/bin/greetd', GREETER_COMMAND,
-                       '/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1', launcher):
+                       '/usr/bin/cosmic-osd', launcher):
         chroot(root, 'test', '-x', executable)
-    agent = (root / 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop').read_text()
-    if 'OnlyShowIn=COSMIC;' not in agent:
-        raise RuntimeError('COSMIC authentication agent is not scoped to its session.')
-    lock_pam = (root / 'etc/pam.d/cosmic-greeter').read_text()
-    if 'auth include system-auth' not in lock_pam or 'account include system-auth' not in lock_pam:
-        raise RuntimeError('COSMIC lock authentication must use the system PAM policy.')
     if lite:
+        # Preserve the dormant Artix compatibility path; the Arch PAM patch
+        # and native-agent review do not establish Artix behavior.
+        chroot(root, 'test', '-x', '/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1')
+        agent = (root / 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop').read_text()
+        if 'OnlyShowIn=COSMIC;' not in agent:
+            raise RuntimeError('COSMIC authentication agent is not scoped to its session.')
+        lock_pam = (root / 'etc/pam.d/cosmic-greeter').read_text()
+        if 'auth include system-auth' not in lock_pam or 'account include system-auth' not in lock_pam:
+            raise RuntimeError('COSMIC lock authentication must use the system PAM policy.')
         for manager in ('greetd', 'sddm', 'lightdm'):
             if list((root / 'etc/runlevels').glob('*/' + manager)):
                 raise RuntimeError('A second display manager is enabled on Lite.')
@@ -158,13 +178,19 @@ def validate(root, home, lite=False):
         if (root / 'etc/xdg/autostart/starch-audio.desktop').exists():
             raise RuntimeError('Lite COSMIC must have only one audio startup path.')
     else:
+        validate_vendor_units(root)
+        if (root / 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop').exists():
+            raise RuntimeError('Redundant GNOME polkit autostart in the COSMIC target.')
+        # Arch 1:1.11.0-1 reverts the locker PAM change to use login.
+        # Do not infer runtime PAM selection from an unused cosmic-greeter file.
+        chroot(root, 'test', '-r', '/etc/pam.d/login')
         for service in ('greetd', 'sddm', 'lightdm'):
             mask = root / ('etc/systemd/system/' + service + '.service')
             if not mask.is_symlink() or str(mask.readlink()) != '/dev/null':
                 raise RuntimeError('Competing login service must be masked: ' + service)
         chroot(root, 'systemctl', 'is-enabled', 'cosmic-greeter.service')
         chroot(root, 'test', '/etc/systemd/system/display-manager.service', '-ef',
-               '/etc/systemd/system/cosmic-greeter.service')
+               '/usr/lib/systemd/system/cosmic-greeter.service')
         if (root / 'usr/lib/starch-cosmic/session').exists():
             raise RuntimeError('Lite session supervisor leaked into a systemd target.')
         for service in ('pipewire.socket', 'pipewire-pulse.socket', 'wireplumber.service'):

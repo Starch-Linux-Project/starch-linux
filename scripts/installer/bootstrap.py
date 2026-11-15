@@ -6,6 +6,7 @@ from profiles import (LITE_PACKAGES, is_lite, has_xfce, has_cosmic, desktop_name
                       validate_selection, pacman_config, verified_bundle)
 from repositories import prepare_lite_keyring
 from media_defaults import write_defaults
+import lite
 
 
 def pacstrap(root, config_path, keyring_args, packages, attempts=3):
@@ -35,6 +36,7 @@ def apply_defaults(root, gs):
     if has_cosmic(gs):
         write_defaults(root)
     if has_xfce(gs):
+        lite.seed_user_services(root)
         panel = root / 'etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml'
         panel.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / 'usr/share/starch-lite/xfce-panel.xml', panel)
