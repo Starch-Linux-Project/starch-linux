@@ -131,6 +131,7 @@ zsh
 # additonal packages start here 
 flatpak
 fastfetch
+btop
 firefox
 nautilus
 cosmic-text-editor

@@ -31,6 +31,7 @@ class DesktopSelection(unittest.TestCase):
                 gs = Storage(starchLite=lite, starchDesktop=desktop)
                 expected = json.loads((ROOT / 'tests/fixtures/installation-profiles.json').read_text())[identity]
                 self.assertEqual(profiles.selected_packages(base, gs), expected)
+                self.assertTrue({'nano', 'btop'} <= set(expected))
                 self.assertEqual(profiles.profile_name(gs), identity)
                 self.assertEqual(profiles.kernel_name(gs), 'linux-zen' if lite else 'linux-lts')
                 self.assertEqual(profiles.pacman_config(ROOT, gs).name,

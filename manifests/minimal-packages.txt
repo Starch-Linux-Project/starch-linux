@@ -37,6 +37,8 @@ cosmic-terminal
 nautilus
 firefox
 fastfetch
+nano
+btop
 zram-generator
 flatpak
 cosmic-text-editor

@@ -284,6 +284,7 @@ class InstallerSafety(unittest.TestCase):
         self.assertIn('linux-lts', packages)
         self.assertIn('limine', packages)
         self.assertIn('fuse2', packages)
+        self.assertTrue({'nano', 'btop'} <= set(packages))
         self.assertIn('plasma-keyboard', packages)
         self.assertIn('qt6-virtualkeyboard', packages)
         self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif', 'nftables'}.issubset(packages))
