@@ -70,7 +70,7 @@ existing-system migration.
 - Fish as the standard user's default shell, with authenticated desktop login
   and installed-system autologin disabled.
 - Shared applications including Firefox, VLC, nano, and btop.
-- Flatpak with Flathub configured; no Flatpak applications are preinstalled.
+- Flatpak with Flathub configured; no Flatpak applications are selected by default.
 - [Linux Update Utility](linux-update-utility.md), supplied as a bundled AppImage.
 
 The [base package manifest](../manifests/minimal-packages.txt) is the starting
@@ -96,6 +96,28 @@ The Installation Profiles page allows one selection at a time. Selection
 persists across backward navigation and appears on the Summary page. Desktop,
 kernel, and init are fixed combinations; Plasma/OpenRC, COSMIC/OpenRC, and
 Xfce/systemd are not supported installation profiles.
+
+## Additional Software
+
+After selecting a profile, optionally enter **Pacman package names** and
+**Flathub app IDs** in separate fields. Separate entries with spaces, commas,
+or newlines. Both fields start empty; there are no presets or AUR support.
+Entries survive backward navigation and appear in Summary. Duplicate entries
+are installed once per field.
+
+Optional installs run in the mounted target only after essential OS installation
+and validation succeed, immediately before unmounting. Pacman uses the target's
+configured repositories (including Lite's Artix-first configuration). Flathub
+apps install system-wide; the Flathub remote is added if missing. No installation
+is deferred to first boot or login.
+
+A separate progress window shows each requested install. **Skip remaining
+optional installs** waits for the current transaction to finish, then skips the
+rest without interrupting package writes. Failed or invalid requests appear as
+warnings; other requests continue, and the completed OS installation is neither
+failed nor rolled back. Warnings and skipped items remain visible until you
+choose **Continue**. Package command logs are retained under
+`/var/log/starch-installer/` in the target.
 
 ## Updates and existing installations
 

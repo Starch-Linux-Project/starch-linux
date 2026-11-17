@@ -18,7 +18,9 @@ snapshot-based rollback. There are no ARM or 32-bit installation images.
 ## Packages and updates
 
 Standard installations use Arch repositories directly. Flatpak and Flathub are
-configured, with no Flatpak applications preinstalled. The application package
+configured, with no Flatpak applications selected by default. The optional
+[Additional Software page](installation-profiles.md#additional-software) accepts
+pacman packages and Flathub app IDs during installation. The application package
 list is in [`manifests/minimal-packages.txt`](../manifests/minimal-packages.txt).
 
 Starch does not stage Arch updates or provide automatic rollback. Upstream

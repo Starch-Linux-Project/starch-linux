@@ -9,14 +9,14 @@ The build enables these modules:
 
 `welcome locale keyboard partition users summary finished mount fstab
 localecfg machineid hwclock bootloader shellprocess services-systemd
-displaymanager umount starchadvanced`
+displaymanager umount starchadvanced starchsoftware`
 
-The Starch-owned `starchadvanced` view adds an **Advanced** sidebar page before
-Summary. A risk acknowledgement reveals the optional profile list. Starch Lite
-is unchecked by default. Every normal build carries its verified bundle and
-enables the option. The selected profile appears in Summary and is passed to
-the Starch job stages. See [Starch Lite](../../docs/starch-lite.md)
-for package sources, build instructions and validation requirements.
+The Starch-owned `starchadvanced` view presents three exclusive Installation
+Profiles. `starchsoftware` follows it with empty pacman and Flathub fields.
+Its native job runs after essential target validation and before unmounting,
+with separate progress, safe skip-after-current behavior, and warning-only
+failures. It calls the staged Python helper with an explicit state allowlist
+and argument arrays. See [installation profiles](../../docs/installation-profiles.md).
 
 The source release contains pybind11 2.11.1. The package replaces that bundled
 copy at configure time with Arch's `pybind11` build dependency so the Python

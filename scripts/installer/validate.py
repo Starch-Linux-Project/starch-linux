@@ -174,3 +174,4 @@ def run(gs):
     preserve_logs(root)
     (root / 'var/log/starch-installer/installed-packages.txt').write_text(versions + '\n')
     (root / 'var/log/starch-installer/result.txt').write_text('Target validation passed. First boot remains to be tested.\n')
+    gs.insert('starchEssentialComplete', True)

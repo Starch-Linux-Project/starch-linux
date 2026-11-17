@@ -1,0 +1,252 @@
+From: Starch Linux Project
+Subject: [PATCH] Add optional software page and final nonfatal job
+
+Upstream-Status: Inappropriate [Starch-specific workflow]
+License: GPL-3.0-or-later
+---
+diff --git a/src/modules/starchsoftware/CMakeLists.txt b/src/modules/starchsoftware/CMakeLists.txt
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchsoftware/CMakeLists.txt
+@@ -0,0 +1,9 @@
++# SPDX-License-Identifier: GPL-3.0-or-later
++include_directories(${PROJECT_BINARY_DIR}/src/libcalamaresui)
++calamares_add_plugin(starchsoftware
++    TYPE viewmodule
++    EXPORT_MACRO PLUGINDLLEXPORT_PRO
++    SOURCES SoftwareViewStep.cpp
++    UI
++    SHARED_LIB
++)
+diff --git a/src/modules/starchsoftware/SoftwareViewStep.cpp b/src/modules/starchsoftware/SoftwareViewStep.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchsoftware/SoftwareViewStep.cpp
+@@ -0,0 +1,182 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include "SoftwareViewStep.h"
++#include "GlobalStorage.h"
++#include "JobQueue.h"
++#include "Job.h"
++#include <QApplication>
++#include <QDialog>
++#include <QJsonDocument>
++#include <QJsonObject>
++#include <QLabel>
++#include <QProcess>
++#include <QProgressBar>
++#include <QPushButton>
++#include <QRegularExpression>
++#include <QTimer>
++#include <QVBoxLayout>
++#include <functional>
++
++CALAMARES_PLUGIN_FACTORY_DEFINITION(SoftwareViewStepFactory, registerPlugin<SoftwareViewStep>();)
++
++static QStringList entries(const QString& text)
++{
++    auto result = text.split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts);
++    result.removeDuplicates();
++    return result;
++}
++
++// Closing the window or Escape must never destroy a running package transaction.
++class SoftwareDialog : public QDialog
++{
++public:
++    using QDialog::QDialog;
++    void reject() override {}
++};
++
++static void installSoftware()
++{
++    auto* storage = Calamares::JobQueue::instance()->globalStorage();
++    QList<QPair<QString, QString>> requests;
++    for (const auto& kind : {QString("pacman"), QString("flathub")})
++        for (const auto& name : entries(storage->value("starchSoftware_" + kind).toString()))
++            requests.append({kind, name});
++    if (requests.isEmpty()) return;
++
++    SoftwareDialog dialog(QApplication::activeWindow());
++    dialog.setWindowTitle(QObject::tr("Additional Software"));
++    dialog.resize(620, 420);
++    auto* layout = new QVBoxLayout(&dialog);
++    auto* status = new QLabel(QObject::tr("Essential OS installation succeeded. Installing optional software."));
++    status->setTextFormat(Qt::PlainText);
++    status->setWordWrap(true);
++    layout->addWidget(status);
++    auto* progress = new QProgressBar;
++    progress->setRange(0, requests.size());
++    layout->addWidget(progress);
++    auto* results = new QPlainTextEdit;
++    results->setReadOnly(true);
++    layout->addWidget(results);
++    auto* skip = new QPushButton(QObject::tr("Skip remaining optional installs"));
++    layout->addWidget(skip);
++    auto* done = new QPushButton(QObject::tr("Continue"));
++    done->setEnabled(false);
++    layout->addWidget(done);
++    QObject::connect(done, &QPushButton::clicked, &dialog, &QDialog::accept);
++    bool skipping = false;
++    QObject::connect(skip, &QPushButton::clicked, &dialog, [&] {
++        skipping = true;
++        skip->setEnabled(false);
++        status->setText(QObject::tr("Skipping remaining installs after the current transaction finishes safely."));
++    });
++    QProcess process;
++    process.setProcessChannelMode(QProcess::MergedChannels);
++    int index = 0;
++    bool warnings = false;
++    QString output;
++    std::function<void()> next;
++    next = [&] {
++        if (skipping || index == requests.size())
++        {
++            for (; index < requests.size(); ++index)
++                results->appendPlainText(QObject::tr("Skipped: %1 (%2)").arg(requests[index].second, requests[index].first));
++            status->setText(warnings ? QObject::tr("Optional software finished with warnings. Your OS installation is complete.")
++                                    : QObject::tr("Optional software finished. Your OS installation is complete."));
++            storage->insert("starchSoftwareResults", results->toPlainText());
++            skip->setEnabled(false);
++            done->setEnabled(true);
++            if (!warnings && !skipping) dialog.accept();
++            return;
++        }
++        const auto request = requests[index];
++        status->setText(QObject::tr("%1 of %2: %3 (%4)").arg(index + 1).arg(requests.size()).arg(request.second, request.first));
++        output.clear();
++        QVariantMap state;
++        // Explicit allowlist: never serialize passwords or all global storage.
++        for (const auto* key : {"rootMountPoint", "starchTargetDisk", "partitions", "bootLoader",
++                               "firmwareType", "starchLite", "starchDesktop", "starchLiteXfce",
++                               "starchEssentialComplete"})
++            state.insert(key, storage->value(key));
++        QJsonObject payload{{"state", QJsonObject::fromVariantMap(state)},
++                            {"kind", request.first}, {"name", request.second}};
++        process.start("/usr/bin/python3", {"/usr/lib/starch-installer/additional.py"});
++        process.write(QJsonDocument(payload).toJson(QJsonDocument::Compact));
++        process.closeWriteChannel();
++    };
++    QObject::connect(&process, &QProcess::readyReadStandardOutput, &dialog, [&] {
++        output += QString::fromUtf8(process.readAllStandardOutput());
++    });
++    auto finished = [&](bool success) {
++        output += QString::fromUtf8(process.readAllStandardOutput());
++        warnings |= !success;
++        results->appendPlainText((success ? QObject::tr("Installed: %1 (%2)") : QObject::tr("Warning: failed to install %1 (%2)"))
++                                    .arg(requests[index].second, requests[index].first));
++        if (!success && !output.isEmpty()) results->appendPlainText(output.trimmed());
++        ++index;
++        progress->setValue(index);
++        QTimer::singleShot(0, &dialog, next);
++    };
++    QObject::connect(&process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), &dialog,
++                     [&](int code, QProcess::ExitStatus exit) { finished(code == 0 && exit == QProcess::NormalExit); });
++    QObject::connect(&process, &QProcess::errorOccurred, &dialog, [&](QProcess::ProcessError error) {
++        if (error == QProcess::FailedToStart) { output = process.errorString(); finished(false); }
++    });
++    QTimer::singleShot(0, &dialog, next);
++    dialog.exec();
++}
++
++class SoftwareJob : public Calamares::Job
++{
++public:
++    QString prettyName() const override { return tr("Additional Software (optional)"); }
++    Calamares::JobResult exec() override
++    {
++        // JobQueue runs jobs on its worker thread; all widgets/process signals stay on the UI thread.
++        QMetaObject::invokeMethod(qApp, installSoftware, Qt::BlockingQueuedConnection);
++        return Calamares::JobResult::ok();
++    }
++};
++
++SoftwareViewStep::~SoftwareViewStep()
++{
++    if (m_widget && !m_widget->parent()) m_widget->deleteLater();
++}
++
++QWidget* SoftwareViewStep::widget()
++{
++    if (m_widget) return m_widget;
++    m_widget = new QWidget;
++    auto* layout = new QVBoxLayout(m_widget);
++    auto* description = new QLabel(tr("Optional: enter package names and Flathub app IDs separated by spaces, commas or newlines. "
++        "Leave both fields empty to skip. No presets or AUR. Software installs after the OS succeeds, using its configured repositories. "
++        "Failures are warnings. You can skip remaining installs after the current transaction finishes. Nothing runs after boot."));
++    description->setWordWrap(true);
++    layout->addWidget(description);
++    auto* storage = Calamares::JobQueue::instance()->globalStorage();
++    for (const auto& kind : {QString("pacman"), QString("flathub")})
++    {
++        auto* label = new QLabel(kind == "pacman" ? tr("Pacman package names") : tr("Flathub app IDs"));
++        layout->addWidget(label);
++        auto* field = new QPlainTextEdit;
++        field->setObjectName("starchSoftware_" + kind);
++        field->setAccessibleName(label->text());
++        field->setPlainText(storage->value(field->objectName()).toString());
++        layout->addWidget(field);
++        QObject::connect(field, &QPlainTextEdit::textChanged, this, [field, storage] {
++            storage->insert(field->objectName(), field->toPlainText());
++        });
++    }
++    return m_widget;
++}
++
++QString SoftwareViewStep::prettyStatus() const
++{
++    auto* storage = Calamares::JobQueue::instance()->globalStorage();
++    return tr("Optional pacman packages: %1<br/>Optional Flathub apps: %2")
++        .arg(entries(storage->value("starchSoftware_pacman").toString()).join(", ").toHtmlEscaped(),
++             entries(storage->value("starchSoftware_flathub").toString()).join(", ").toHtmlEscaped());
++}
++
++Calamares::JobList SoftwareViewStep::jobs() const
++{
++    return {Calamares::job_ptr(new SoftwareJob)};
++}
+diff --git a/src/modules/starchsoftware/SoftwareViewStep.h b/src/modules/starchsoftware/SoftwareViewStep.h
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchsoftware/SoftwareViewStep.h
+@@ -0,0 +1,26 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include "DllMacro.h"
++#include "utils/PluginFactory.h"
++#include "viewpages/ViewStep.h"
++#include <QPointer>
++#include <QPlainTextEdit>
++
++class PLUGINDLLEXPORT SoftwareViewStep : public Calamares::ViewStep
++{
++    Q_OBJECT
++public:
++    explicit SoftwareViewStep(QObject* parent = nullptr) : Calamares::ViewStep(parent) {}
++    ~SoftwareViewStep() override;
++    QString prettyName() const override { return tr("Additional Software"); }
++    QString prettyStatus() const override;
++    QWidget* widget() override;
++    bool isNextEnabled() const override { return true; }
++    bool isBackEnabled() const override { return true; }
++    bool isAtBeginning() const override { return true; }
++    bool isAtEnd() const override { return true; }
++    Calamares::JobList jobs() const override;
++private:
++    QPointer<QWidget> m_widget;
++};
++CALAMARES_PLUGIN_FACTORY_DECLARATION(SoftwareViewStepFactory)
+diff --git a/src/modules/starchsoftware/starchsoftware.conf b/src/modules/starchsoftware/starchsoftware.conf
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchsoftware/starchsoftware.conf
+@@ -0,0 +1,1 @@
++{}
+diff --git a/src/modules/starchsoftware/starchsoftware.schema.yaml b/src/modules/starchsoftware/starchsoftware.schema.yaml
+new file mode 100644
+--- /dev/null
++++ b/src/modules/starchsoftware/starchsoftware.schema.yaml
+@@ -0,0 +1,3 @@
++$schema: http://json-schema.org/draft-07/schema#
++type: object
++additionalProperties: false

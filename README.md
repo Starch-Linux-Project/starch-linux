@@ -32,6 +32,10 @@ All profiles use ext4, Limine (UEFI or BIOS), zram, NetworkManager, PipeWire,
 Flatpak, and Linux Update Utility. The Archiso live desktop uses Plasma,
 systemd, and the regular Arch kernel.
 
+An optional Additional Software page accepts pacman packages and Flathub app IDs
+for installation after the essential OS succeeds, with safe skipping and warnings
+for optional failures. Nothing is deferred to first boot.
+
 See [installation profiles](docs/installation-profiles.md),
 [supported scope](docs/decisions.md), and [licensing](docs/licensing.md).
 

@@ -51,10 +51,10 @@ assert nftables_service.is_symlink() and nftables_service.readlink().as_posix() 
 print("Built live filesystem validation passed")
 for path in ["usr/bin/calamares", "usr/local/bin/starch-install", "etc/calamares/settings.conf",
              "usr/share/applications/starch-install.desktop", "usr/share/starch-installer/minimal-packages.txt",
-             "usr/lib/starch-installer/runtime.py"]:
+             "usr/lib/starch-installer/runtime.py", "usr/lib/starch-installer/additional.py"]:
     assert (root / path).is_file(), f"Missing installer artifact: {path}"
 for module in ["welcome", "locale", "keyboard", "partition", "users", "summary", "finished",
-               "mount", "umount", "machineid", "fstab", "localecfg", "displaymanager", "bootloader",
+               "starchadvanced", "starchsoftware", "mount", "umount", "machineid", "fstab", "localecfg", "displaymanager", "bootloader",
                "starch-preflight", "starch-bootstrap", "starch-configure", "starch-validate"]:
     assert (root / "usr/lib/calamares/modules" / module / "module.desc").is_file(), f"Missing module: {module}"
 assert (root / "usr/local/bin/starch-install").stat().st_mode & 0o111, "Installer launcher is not executable"

@@ -157,7 +157,7 @@ reviewable as a source change.
 
 `calamares/settings.conf` is the authority for execution order. The current
 visible pages are welcome, locale, keyboard, partition, users,
-`starchadvanced`, and summary. The module name `starchadvanced` persists even
+`starchadvanced`, `starchsoftware` (Additional Software), and summary. The module name `starchadvanced` persists even
 though the public page is Installation Profiles.
 
 The execution sequence is:
@@ -176,7 +176,16 @@ The execution sequence is:
 12. `starch-configure`
 13. `starch-limine`
 14. `starch-validate`
-15. `umount`
+15. `starchsoftware` (optional software; warning-only failures)
+16. `umount`
+
+The Additional Software page preserves raw entries in `starchSoftware_pacman`
+and `starchSoftware_flathub`; its native job deduplicates requests and shows
+separate progress. Skip waits for the active transaction, then drops pending
+requests. Optional failures are warnings and never fail the OS job queue.
+`additional.py` reuses mounted-target checks and requires the
+`starchEssentialComplete` flag set only at the end of validation. Nothing is
+scheduled for boot/login.
 
 The finished page follows execution. Preserve dependencies between stages;
 particularly, defaults intended for a new user's home must reach `/etc/skel`
@@ -198,7 +207,8 @@ before `users` creates the account.
 | `media_defaults.py` | Media MIME defaults and their validation. |
 | `limine.py` | Initial installed-system bootloader deployment and maintenance enrollment. |
 | `limine_update.py` | Later validation and refresh of installed Limine loader files/stages. |
-| `validate.py` | Final installed-target checks before successful completion. |
+| `validate.py` | Final installed-target checks and essential-completion gate. |
+| `additional.py` | One validated optional pacman/Flathub transaction in the mounted target; called by the native `starchsoftware` job after validation. |
 
 Staging creates the Calamares Python job wrappers. Change their generator in
 `stage-installer.py`, not a wrapper found in a built image.
@@ -547,7 +557,7 @@ dependency for the package's Python toolchain. Preserve the isolated official
 Arch build configuration and the pinned upstream archive checksum.
 
 Starch patches cover erase-only partitioning, OS-prober avoidance, live-only
-autologin policy, installer presentation, and profile selection. When changing
+autologin policy, installer presentation, profile selection, and optional software. When changing
 a patch:
 
 1. Inspect its current upstream context and the corresponding tests.
