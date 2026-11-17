@@ -1,18 +1,5 @@
-  ▄▄▄▄▄     ▄▄▄▄▄▄▄     ▄▄      ▄▄▄▄▄▄    ▄   ▄▄▄▄   ▄▄▄  ▄▄▄ 
- ██▀▀▀▀█▄  █▀▀██▀▀▀▀  ▄█▀▀█▄   █▀██▀▀▀█▄  ▀██████▀  █▀██  ██  
- ▀██▄  ▄▀     ██      ██  ██     ██▄▄▄█▀    ██        ██  ██  
-   ▀██▄▄      ██      ██▀▀██     ██▀▀█▄     ██        ██████  
- ▄   ▀██▄     ██    ▄ ██  ██   ▄ ██  ██     ██        ██  ██  
- ▀██████▀     ▀██▄  ▀██▀  ▀█▄█ ▀██▀  ▀██▀   ▀█████  ▀██▀  ▀██▄
-                                                              
-                                                              
-                                                              
-    ▄▄▄     ▄▄▄▄▄▄   ▄▄     ▄▄▄   ▄▄▄  ▄▄   ▄▄▄   ▄▄▄         
-   ▀██▀    █▀ ██     ██▄   ██▀   █▀██  ██  █▀▀██ ██▀          
-    ██        ██     ███▄  ██      ██  ██     ▀█▄█▀           
-    ██        ██     ██ ▀█▄██      ██  ██      ███            
-    ██        ██     ██   ▀██      ██  ██    ▄█▀██▄           
-   ████████ ▄▄██▄▄ ▀██▀    ██      ▀█████▄ ▀██▀  ▀██▄  
+Starch Linux, a personal Linux made to  serve you the endless horizons of Arch/Artix,
+without roleplaying as a systems engineer. 
 
 If you'd like to contribute to this project, understand your contribution matters
 more than you likely think. I'm currently one dude spending many hours out of my 
