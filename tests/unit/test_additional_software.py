@@ -26,7 +26,8 @@ class AdditionalSoftware(unittest.TestCase):
         target.assert_called_once_with(self.gs)
         self.assertEqual(run.call_args_list, [
             call(self.root, 'pacman', '-Si', '--', 'some-package+git'),
-            call(self.root, 'pacman', '-S', '--needed', '--noconfirm', '--', 'some-package+git')])
+            call(self.root, 'pacman', '-S', '--needed', '--noconfirm', '--', 'some-package+git'),
+            call(self.root, 'pacman', '-Q', '--', 'some-package+git')])
 
     def test_flathub_is_system_wide_and_app_only(self):
         with patch.object(additional, 'target', return_value=self.root), \
@@ -37,7 +38,8 @@ class AdditionalSoftware(unittest.TestCase):
             call(self.root, 'flatpak', 'remote-add', '--system', '--if-not-exists',
                  'flathub', 'https://dl.flathub.org/repo/flathub.flatpakrepo'),
             call(self.root, 'flatpak', 'install', '--system', '--noninteractive',
-                 '--assumeyes', '--or-update', 'flathub', 'app/org.example.App')])
+                 '--assumeyes', '--or-update', 'flathub', 'app/org.example.App'),
+            call(self.root, 'flatpak', 'info', '--system', 'app/org.example.App')])
 
     def test_invalid_inputs_never_touch_target(self):
         for kind, name in [('pacman', '--root=/'), ('pacman', 'repo/pkg'),
@@ -76,12 +78,34 @@ class AdditionalSoftware(unittest.TestCase):
         request = {'state': {}, 'kind': 'pacman', 'name': 'foo'}
         with patch('sys.stdin', io.StringIO(json.dumps(request))), \
              patch('sys.stdout', new_callable=io.StringIO) as stdout, \
-             patch.object(additional, 'install', side_effect=RuntimeError('offline')):
+             patch.object(additional, 'install', side_effect=RuntimeError('offline')), \
+             patch.object(additional, 'record_result') as record:
             self.assertEqual(additional.main(), 1)
         self.assertEqual(stdout.getvalue(), 'Warning: offline\n')
+        record.assert_called_once_with(request, 'warning', 'offline')
 
     def test_page_and_final_job_order(self):
         sequence = yaml.safe_load((ROOT / 'calamares/settings.conf').read_text())['sequence']
         pages = sequence[0]['show']
         self.assertEqual(pages[pages.index('starchadvanced') + 1], 'starchsoftware')
         self.assertEqual(sequence[1]['exec'][-3:], ['starch-validate', 'starchsoftware', 'umount'])
+
+    def test_verification_failure_is_not_success(self):
+        with patch.object(additional, 'target', return_value=self.root), \
+             patch.object(additional, 'chroot', side_effect=[None, None, RuntimeError('missing')]), \
+             patch.object(additional, 'preserve_logs'):
+            with self.assertRaisesRegex(RuntimeError, 'missing'):
+                additional.install(self.gs, 'pacman', 'discord')
+
+    def test_outcome_is_saved_in_target_log(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(additional, 'LOG', Path(directory) / 'installer.log'), \
+             patch.object(additional, 'require_live'), \
+             patch.object(additional, 'target', return_value=self.root), \
+             patch.object(additional, 'preserve_logs') as preserve:
+            additional.record_result({'kind': 'pacman', 'name': 'missing'}, 'warning', 'not found')
+            saved = json.loads((Path(directory) / 'installer.log').read_text())
+            self.assertEqual(saved['optionalSoftware'], 'warning')
+            self.assertEqual(saved['name'], 'missing')
+            preserve.assert_called_once_with(self.root)

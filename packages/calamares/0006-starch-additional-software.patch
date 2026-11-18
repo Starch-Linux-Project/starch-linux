@@ -22,7 +22,7 @@ diff --git a/src/modules/starchsoftware/SoftwareViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchsoftware/SoftwareViewStep.cpp
-@@ -0,0 +1,182 @@
+@@ -0,0 +1,222 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "SoftwareViewStep.h"
 +#include "GlobalStorage.h"
@@ -30,6 +30,9 @@ new file mode 100644
 +#include "Job.h"
 +#include <QApplication>
 +#include <QDialog>
++#include <QElapsedTimer>
++#include <QFile>
++#include <QTextCursor>
 +#include <QJsonDocument>
 +#include <QJsonObject>
 +#include <QLabel>
@@ -78,6 +81,14 @@ new file mode 100644
 +    auto* progress = new QProgressBar;
 +    progress->setRange(0, requests.size());
 +    layout->addWidget(progress);
++    auto* elapsedLabel = new QLabel;
++    elapsedLabel->setWordWrap(true);
++    layout->addWidget(elapsedLabel);
++    auto* liveOutput = new QPlainTextEdit;
++    liveOutput->setObjectName("starchSoftwareOutput");
++    liveOutput->setReadOnly(true);
++    liveOutput->setMaximumBlockCount(2000);
++    layout->addWidget(liveOutput);
 +    auto* results = new QPlainTextEdit;
 +    results->setReadOnly(true);
 +    layout->addWidget(results);
@@ -98,6 +109,24 @@ new file mode 100644
 +    int index = 0;
 +    bool warnings = false;
 +    QString output;
++    QString commandOutput;
++    QFile log("/var/log/starch-installer.log");
++    QElapsedTimer elapsed;
++    QTimer monitor;
++    auto drainLog = [&] {
++        if (!log.isOpen()) log.open(QIODevice::ReadOnly);
++        if (log.isOpen()) {
++            const auto text = QString::fromUtf8(log.readAll());
++            commandOutput = (commandOutput + text).right(16000);
++            liveOutput->moveCursor(QTextCursor::End);
++            liveOutput->insertPlainText(text);
++        }
++    };
++    QObject::connect(&monitor, &QTimer::timeout, &dialog, [&] {
++        drainLog();
++        elapsedLabel->setText(QObject::tr("Current request: %1 seconds. Package downloads and hooks may take time. "
++            "Skip waits for this transaction to finish safely.").arg(elapsed.elapsed() / 1000));
++    });
 +    std::function<void()> next;
 +    next = [&] {
 +        if (skipping || index == requests.size())
@@ -109,12 +138,18 @@ new file mode 100644
 +            storage->insert("starchSoftwareResults", results->toPlainText());
 +            skip->setEnabled(false);
 +            done->setEnabled(true);
-+            if (!warnings && !skipping) dialog.accept();
++            elapsedLabel->setText(QObject::tr("Review the results below, then choose Continue."));
 +            return;
 +        }
 +        const auto request = requests[index];
 +        status->setText(QObject::tr("%1 of %2: %3 (%4)").arg(index + 1).arg(requests.size()).arg(request.second, request.first));
 +        output.clear();
++        liveOutput->clear();
++        commandOutput.clear();
++        if (!log.isOpen()) log.open(QIODevice::ReadOnly);
++        if (log.isOpen()) log.seek(log.size());
++        elapsed.restart();
++        monitor.start(250);
 +        QVariantMap state;
 +        // Explicit allowlist: never serialize passwords or all global storage.
 +        for (const auto* key : {"rootMountPoint", "starchTargetDisk", "partitions", "bootLoader",
@@ -128,13 +163,18 @@ new file mode 100644
 +        process.closeWriteChannel();
 +    };
 +    QObject::connect(&process, &QProcess::readyReadStandardOutput, &dialog, [&] {
-+        output += QString::fromUtf8(process.readAllStandardOutput());
++        const auto text = QString::fromUtf8(process.readAllStandardOutput());
++        output += text;
++        liveOutput->appendPlainText(text.trimmed());
 +    });
 +    auto finished = [&](bool success) {
++        monitor.stop();
++        drainLog();
 +        output += QString::fromUtf8(process.readAllStandardOutput());
 +        warnings |= !success;
 +        results->appendPlainText((success ? QObject::tr("Installed: %1 (%2)") : QObject::tr("Warning: failed to install %1 (%2)"))
 +                                    .arg(requests[index].second, requests[index].first));
++        if (!success && !commandOutput.isEmpty()) results->appendPlainText(commandOutput.trimmed());
 +        if (!success && !output.isEmpty()) results->appendPlainText(output.trimmed());
 +        ++index;
 +        progress->setValue(index);

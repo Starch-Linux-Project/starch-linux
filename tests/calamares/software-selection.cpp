@@ -22,6 +22,13 @@ static void check(bool value, const char* message)
     if (!value) throw std::runtime_error(message);
 }
 
+class FailedEssentialJob : public Calamares::Job
+{
+public:
+    QString prettyName() const override { return "Simulated essential OS failure"; }
+    Calamares::JobResult exec() override { return Calamares::JobResult::error("Simulated failure"); }
+};
+
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
@@ -49,17 +56,21 @@ int main(int argc, char** argv)
     flathub = page->findChild<QPlainTextEdit*>("starchSoftware_flathub");
     check(pacman->toPlainText() == "foo, foo\nmissing <b>", "Recreation lost entries");
 
-    auto run = [&](bool skip) {
+    auto run = [&](bool skip, bool essentialFailure = false) {
         auto job = step->jobs().first();
-        bool succeeded = false;
+        bool succeeded = true;
+        bool sawLiveOutput = false;
         bool clicked = false;
+        bool reviewed = false;
         QEventLoop loop;
-        auto* thread = QThread::create([&] { succeeded = job->exec().succeeded(); });
-        QObject::connect(thread, &QThread::finished, &loop, &QEventLoop::quit);
+        QObject::connect(&queue, &Calamares::JobQueue::finished, &loop, &QEventLoop::quit);
+        QObject::connect(&queue, &Calamares::JobQueue::failed, &loop, [&] { succeeded = false; });
         QTimer poll;
         QObject::connect(&poll, &QTimer::timeout, [&] {
             auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
             if (!dialog) return;
+            auto* live = dialog->findChild<QPlainTextEdit*>("starchSoftwareOutput");
+            if (live && live->toPlainText().contains("downloading foo")) sawLiveOutput = true;
             for (auto* button : dialog->findChildren<QPushButton*>()) {
                 if (skip && !clicked && button->text().startsWith("Skip remaining") && button->isEnabled()) {
                     // Wait until the fake transaction has actually started.
@@ -70,16 +81,18 @@ int main(int argc, char** argv)
                         dialog->reject(); // Escape/close cannot interrupt the transaction.
                     }
                 }
-                if (button->text() == "Continue" && button->isEnabled()) button->click();
+                if (button->text() == "Continue" && button->isEnabled()) { reviewed = true; button->click(); }
             }
         });
         poll.start(5);
         QTimer::singleShot(10000, &loop, [] { qFatal("Software test timed out"); });
-        thread->start();
+        if (essentialFailure) queue.enqueue(1, {Calamares::job_ptr(new FailedEssentialJob)});
+        queue.enqueue(1, {job});
+        queue.start();
         loop.exec();
-        thread->wait();
-        delete thread;
-        check(succeeded, "Optional failure failed the OS job");
+        if (!essentialFailure && !pacman->toPlainText().isEmpty()) check(sawLiveOutput, "No live package output was displayed");
+        check(succeeded != essentialFailure, "Incorrect OS job failure status");
+        if (!essentialFailure && !pacman->toPlainText().isEmpty()) check(reviewed, "Results closed before review");
         if (skip) check(clicked, "Skip was not exercised");
         return gs->value("starchSoftwareResults").toString();
     };
@@ -88,6 +101,8 @@ int main(int argc, char** argv)
     QFile::remove("/tmp/starch-software-test.log");
     run(false);
     check(!QFile::exists("/tmp/starch-software-test.log"), "Empty selection launched helper");
+    pacman->setPlainText("foo");
+    check(run(false).contains("Installed: foo"), "Successful request not reported");
     pacman->setPlainText("foo foo, missing bar");
     flathub->setPlainText("org.example.App org.example.App");
     auto result = run(false);
@@ -102,6 +117,10 @@ int main(int argc, char** argv)
     const auto transaction = log.readAll();
     check(transaction == "start foo\nend foo\n", "Skip killed current transaction or started another");
     check(result.contains("Skipped: bar") && result.contains("Skipped: org.example.App"), "Skipped requests not reported");
+    log.close();
+    QFile::remove("/tmp/starch-software-test.log");
+    run(false, true);
+    check(!QFile::exists("/tmp/starch-software-test.log"), "Optional helper ran after essential OS failure");
     delete step;
     std::cout << "Additional Software navigation, deduplication, warnings and safe skip passed.\n";
 }

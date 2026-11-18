@@ -181,8 +181,9 @@ The execution sequence is:
 
 The Additional Software page preserves raw entries in `starchSoftware_pacman`
 and `starchSoftware_flathub`; its native job deduplicates requests and shows
-separate progress. Skip waits for the active transaction, then drops pending
-requests. Optional failures are warnings and never fail the OS job queue.
+separate progress with elapsed time and live package output. Results require
+Continue even on success; each install is verified and its outcome logged.
+Skip waits for the active transaction, then drops pending requests. Optional failures are warnings and never fail the OS job queue.
 `additional.py` reuses mounted-target checks and requires the
 `starchEssentialComplete` flag set only at the end of validation. Nothing is
 scheduled for boot/login.

@@ -111,12 +111,15 @@ configured repositories (including Lite's Artix-first configuration). Flathub
 apps install system-wide; the Flathub remote is added if missing. No installation
 is deferred to first boot or login.
 
-A separate progress window shows each requested install. **Skip remaining
+A separate progress window shows each requested install, its elapsed time, and
+live package-manager output. Each request is checked in the installed package
+database before being reported as installed. **Skip remaining
 optional installs** waits for the current transaction to finish, then skips the
 rest without interrupting package writes. Failed or invalid requests appear as
 warnings; other requests continue, and the completed OS installation is neither
-failed nor rolled back. Warnings and skipped items remain visible until you
-choose **Continue**. Package command logs are retained under
+failed nor rolled back. Results remain visible until you choose **Continue**,
+including when all requests succeeded. Failure output stays in the results when the next request
+starts. Per-request outcomes and package command logs are retained under
 `/var/log/starch-installer/` in the target.
 
 ## Updates and existing installations

@@ -9,7 +9,9 @@ name = request['name']
 with Path('/tmp/starch-software-test.log').open('a') as log:
     log.write(f'start {name}\n')
     log.flush()
-    time.sleep(0.2)
+    with Path('/var/log/starch-installer.log').open('a') as output:
+        output.write(f'downloading {name}\n')
+    time.sleep(0.7)
     log.write(f'end {name}\n')
 if name == 'missing':
     print('Warning: simulated repository failure')
