@@ -198,8 +198,8 @@ def verify_lite_archive(path):
         names = subprocess.check_output(['bsdtar', '-tf', str(path)], text=True, timeout=30).splitlines()
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         raise RuntimeError(f'Cannot inspect Lite archive: {path}') from error
-    if 'pkgname = starch-lite\n' not in info or 'pkgver = 0.2.2-16\n' not in info:
-        raise RuntimeError('Obsolete or unreviewed Lite package; rebuild the bundle (expected 0.2.2-16).')
+    if 'pkgname = starch-lite\n' not in info or 'pkgver = 0.2.2-17\n' not in info:
+        raise RuntimeError('Obsolete or unreviewed Lite package; rebuild the bundle (expected 0.2.2-17).')
     forbidden = {'audio-session', 'starch-audio.desktop', 'configure-pam', '95-starch-lite-pam.hook'}
     if any(Path(name.rstrip('/')).name in forbidden for name in names):
         raise RuntimeError('Lite archive contains retired audio/PAM integration.')

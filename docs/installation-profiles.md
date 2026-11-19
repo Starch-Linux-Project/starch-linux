@@ -61,6 +61,10 @@ bundle is missing, and installation also verifies the bundle before using it.
 The [Starch Lite reference](starch-lite.md) covers service integration and
 existing-system migration.
 
+New Lite installations use a full-width top taskbar and a centered bottom dock
+with Thunar, COSMIC Terminal, and Firefox launchers. The native Xfce dock hides
+when the focused window overlaps it. Existing user panel settings are preserved.
+
 ## Shared components
 
 - An x86_64 installation with Limine boot support for UEFI or legacy BIOS.

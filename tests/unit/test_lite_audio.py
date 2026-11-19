@@ -153,7 +153,7 @@ class UpstreamAudio(unittest.TestCase):
     def test_payload_keeps_unrelated_defaults_and_no_old_audio_references(self):
         for name in ('etc/init.d/starch-banner', 'etc/init.d/starch-zram',
                      'etc/sysctl.d/99-low-ram.conf', 'etc/rc.conf.d/starch.conf',
-                     'usr/lib/starch-lite/xfce-defaults', 'usr/share/starch-lite/xfce-panel.xml',
+                     'usr/lib/starch-lite/xfce-defaults',
                      'usr/share/xfce4/helpers/starch-cosmic-terminal.desktop'):
             self.assertTrue((PAYLOAD / name).is_file(), name)
             original = subprocess.check_output(['git', 'show', 'HEAD:packages/starch-lite/integration/root/' + name], cwd=ROOT)
@@ -164,9 +164,9 @@ class UpstreamAudio(unittest.TestCase):
                 self.assertNotEqual(p.name, 'starch-audio.desktop')
 
     def test_archive_rejects_old_version_and_removed_payload_even_with_new_identity(self):
-        for version, stale in [('0.2.2-15', None), ('0.2.2-16', 'usr/lib/starch-lite/audio-session'),
-                               ('0.2.2-16', 'usr/share/starch-lite/xfce-config/autostart/starch-audio.desktop'),
-                               ('0.2.2-16', None)]:
+        for version, stale in [('0.2.2-16', None), ('0.2.2-17', 'usr/lib/starch-lite/audio-session'),
+                               ('0.2.2-17', 'usr/share/starch-lite/xfce-config/autostart/starch-audio.desktop'),
+                               ('0.2.2-17', None)]:
             with self.subTest(version=version, stale=stale), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / 'starch-lite.pkg.tar'
                 with tarfile.open(path, 'w') as archive:
@@ -176,7 +176,7 @@ class UpstreamAudio(unittest.TestCase):
                     archive.addfile(info, io.BytesIO(data))
                     if stale:
                         archive.addfile(tarfile.TarInfo(stale))
-                if version.endswith('-15') or stale:
+                if version.endswith('-16') or stale:
                     with self.assertRaises(RuntimeError):
                         profiles.verify_lite_archive(path)
                 else:

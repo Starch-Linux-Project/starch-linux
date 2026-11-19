@@ -104,6 +104,8 @@ class CosmicTarget(unittest.TestCase):
                     bootstrap.apply_defaults(root, Storage(starchLite=init, starchDesktop=desktop))
                 self.assertEqual((root / 'etc/skel/.config/cosmic').is_dir(), desktop == 'cosmic')
                 self.assertEqual((root / 'etc/skel/.config/kwinrc').is_file(), desktop == 'plasma')
+                self.assertEqual((root / 'etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml').is_file(),
+                                 init and desktop == 'xfce')
                 self.assertEqual((root / 'usr/lib/starch-cosmic/session').is_file(), init and desktop == 'cosmic')
                 self.assertEqual((root / 'usr/lib/starch/rotation.py').is_file(),
                                  not init and desktop == 'cosmic')

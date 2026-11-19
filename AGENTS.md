@@ -326,7 +326,7 @@ selection vendor-based and conservative for unknown input.
   `artix-arch-extra` and the expected `starch-lite` and `artix-keyring` entries.
 - Verify allowed package names, basenames, regular-file status, non-symlink
   inputs, and SHA-256 checksums before using a bundle. Inspect the actual Lite
-  archive identity (`0.2.2-16`) and reject retired audio/PAM payloads. Update the
+  archive identity (`0.2.2-17`) and reject retired audio/PAM payloads. Update the
   reviewed package version in `profiles.verify_lite_archive()` on package releases.
 - Preserve the pinned Artix keyring acquisition record and checksum.
 - Lite trust initialization is isolated; it must not populate or weaken the
@@ -415,6 +415,11 @@ docs/starch-lite-audio-migration.md in a disposable VM. Preserve the recovery
 text login. Xfce compositing and session
 restoration are off by default; account initialization should respect existing
 user settings.
+
+New Lite accounts receive the packaged two-panel Xfce layout through bootstrap
+`/etc/skel` seeding: a full-width top taskbar and a compact bottom launcher panel
+with intelligent hiding. Launchers use installed system desktop entries; preserve
+existing users' panel settings.
 
 ### Rotation
 

@@ -45,7 +45,7 @@ def bundle(root):
         filename = f'{name}-1.0-1-x86_64.pkg.tar.zst'
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            data = f'pkgname = {name}\npkgver = 0.2.2-16\n'.encode()
+            data = f'pkgname = {name}\npkgver = 0.2.2-17\n'.encode()
             member = tarfile.TarInfo('.PKGINFO')
             member.size = len(data)
             archive.addfile(member, io.BytesIO(data))
@@ -199,7 +199,7 @@ class LiteProfile(unittest.TestCase):
                 root = Path(directory)
                 config = root / '.config/xfce4/xfconf/xfce-perchannel-xml'
                 config.mkdir(parents=True)
-                (config / 'xfce4-panel.xml').touch()
+                (config / 'xfce4-panel.xml').write_text('custom panel settings')
                 if existing:
                     (config / 'xfwm4.xml').write_text('<channel name="xfwm4"/>')
                 binaries = root / 'bin'
@@ -216,6 +216,8 @@ class LiteProfile(unittest.TestCase):
                                     'PATH': f'{binaries}:/usr/bin', 'QUERY_LOG': str(log)}
                 subprocess.run(['sh', script], env=env, check=True)
                 queries = log.read_text()
+                self.assertEqual((config / 'xfce4-panel.xml').read_text(), 'custom panel settings')
+                self.assertNotIn('-c xfce4-panel ', queries)
                 if existing:
                     self.assertNotIn('-c xfwm4 ', queries)
                     self.assertEqual((config / 'xfwm4.xml').read_text(), '<channel name="xfwm4"/>')
