@@ -96,7 +96,8 @@ Boot, hibernation, and snapshot rollback are outside the supported scope.
 There are no ARM or 32-bit images. Installation and hardware boundaries are
 documented in [supported scope](decisions.md).
 
-The Installation Profiles page allows one selection at a time. Selection
+The Installation Profiles page shows a desktop screenshot beside each profile
+and allows one selection at a time. Selection
 persists across backward navigation and appears on the Summary page. Desktop,
 kernel, and init are fixed combinations; Plasma/OpenRC, COSMIC/OpenRC, and
 Xfce/systemd are not supported installation profiles.

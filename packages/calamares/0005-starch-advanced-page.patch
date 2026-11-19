@@ -69,14 +69,17 @@ diff --git a/src/modules/starchadvanced/AdvancedViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchadvanced/AdvancedViewStep.cpp
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,142 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "AdvancedViewStep.h"
++#include "Branding.h"
 +#include "GlobalStorage.h"
 +#include "JobQueue.h"
 +
 +#include <QButtonGroup>
 +#include <QFrame>
++#include <QHBoxLayout>
++#include <QPixmap>
 +#include <QLabel>
 +#include <QRadioButton>
 +#include <QVBoxLayout>
@@ -115,19 +118,36 @@ new file mode 100644
 +        auto* group = new QButtonGroup( m_widget );
 +        group->setExclusive( true );
 +        auto addProfile = [&]( const QString& name, const QString& title, const QString& details,
-+                               const QString& description ) {
++                               const QString& description, const QString& screenshot ) {
 +            auto* card = new QFrame( m_widget );
 +            card->setObjectName( "installationProfile" );
-+            auto* cardLayout = new QVBoxLayout( card );
++            auto* cardLayout = new QHBoxLayout( card );
++            cardLayout->setContentsMargins( 16, 12, 16, 12 );
++            cardLayout->setSpacing( 16 );
++            const QPixmap image( Calamares::Branding::instance()->componentDirectory()
++                                 + "/../Screenshots/" + screenshot );
++            if ( !image.isNull() )
++            {
++                auto* preview = new QLabel( card );
++                preview->setObjectName( name + "Preview" );
++                preview->setAccessibleName( tr( "%1 desktop preview" ).arg( title ) );
++                preview->setPixmap( image.scaled( 160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation ) );
++                preview->setFixedSize( 160, 90 );
++                preview->setAlignment( Qt::AlignCenter );
++                cardLayout->addWidget( preview );
++            }
++            auto* textLayout = new QVBoxLayout;
++            textLayout->setSpacing( 6 );
++            cardLayout->addLayout( textLayout, 1 );
 +            auto* button = new QRadioButton( title, card );
 +            button->setObjectName( name );
 +            group->addButton( button );
-+            cardLayout->addWidget( button );
++            textLayout->addWidget( button );
 +            for ( const auto& text : { details, description } )
 +            {
 +                auto* label = new QLabel( text, card );
 +                label->setWordWrap( true );
-+                cardLayout->addWidget( label );
++                textLayout->addWidget( label );
 +            }
 +            layout->addWidget( card );
 +            connect( button, &QRadioButton::toggled, this, [this]( bool checked ) {
@@ -136,14 +156,14 @@ new file mode 100644
 +            return button;
 +        };
 +        m_plasma = addProfile( "starchPlasma", tr( "KDE Plasma LTS — Recommended" ),
-+            tr( "Desktop: KDE Plasma · Kernel: Linux LTS · Init: systemd" ),
-+            tr( "Starch's most established and thoroughly tested configuration. Recommended for the most reliable everyday desktop experience." ) );
++            tr( "KDE Plasma · Linux LTS · systemd" ),
++            tr( "A customizable desktop for everyday use." ), "starch-kde.png" );
 +        m_cosmic = addProfile( "starchCosmic", tr( "COSMIC LTS" ),
-+            tr( "Desktop: COSMIC · Kernel: Linux LTS · Init: systemd" ),
-+            tr( "A modern desktop experience featuring COSMIC 1.x. Some features and integrations may be less mature than KDE Plasma." ) );
++            tr( "COSMIC · Linux LTS · systemd" ),
++            tr( "A modern workspace with built-in window tiling." ), "starch-cosmic.png" );
 +        m_lite = addProfile( "starchLite", tr( "Starch Lite — For experienced users" ),
-+            tr( "Desktop: XFCE · Kernel: Linux Zen · Init: OpenRC" ),
-+            tr( "Starch's lightest and most extensively optimized configuration. Designed for experienced users comfortable with more hands-on system management." ) );
++            tr( "Xfce · Linux Zen · OpenRC" ),
++            tr( "A lightweight Xfce desktop with OpenRC. For hands-on system management." ), "starch-lite.png" );
 +        m_lite->setEnabled( m_liteAvailable );
 +        if ( !m_liteAvailable )
 +        {

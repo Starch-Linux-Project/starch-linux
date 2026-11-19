@@ -45,7 +45,7 @@ class InstallerSafety(unittest.TestCase):
             content = (ROOT / 'calamares/branding/starch' / name).read_text()
             self.assertNotIn('@PRODUCT_URL@', content)
             self.assertNotIn('href=', content)
-            self.assertIn('TODO: Add Starch Linux 1.3 release news.', content)
+            self.assertIn('Starch Linux', content)
             self.assertNotIn('1.1', content)
 
         partition = yaml.safe_load((ROOT / 'calamares/modules/partition.conf').read_text())

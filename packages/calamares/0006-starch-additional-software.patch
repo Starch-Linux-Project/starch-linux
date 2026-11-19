@@ -22,7 +22,7 @@ diff --git a/src/modules/starchsoftware/SoftwareViewStep.cpp b/src/modules/starc
 new file mode 100644
 --- /dev/null
 +++ b/src/modules/starchsoftware/SoftwareViewStep.cpp
-@@ -0,0 +1,222 @@
+@@ -0,0 +1,243 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +#include "SoftwareViewStep.h"
 +#include "GlobalStorage.h"
@@ -32,6 +32,7 @@ new file mode 100644
 +#include <QDialog>
 +#include <QElapsedTimer>
 +#include <QFile>
++#include <QFontMetrics>
 +#include <QTextCursor>
 +#include <QJsonDocument>
 +#include <QJsonObject>
@@ -210,26 +211,46 @@ new file mode 100644
 +{
 +    if (m_widget) return m_widget;
 +    m_widget = new QWidget;
++    m_widget->setObjectName("starchSoftwarePage");
 +    auto* layout = new QVBoxLayout(m_widget);
-+    auto* description = new QLabel(tr("Optional: enter package names and Flathub app IDs separated by spaces, commas or newlines. "
-+        "Leave both fields empty to skip. No presets or AUR. Software installs after the OS succeeds, using its configured repositories. "
-+        "Failures are warnings. You can skip remaining installs after the current transaction finishes. Nothing runs after boot."));
++    layout->setContentsMargins(24, 16, 24, 16);
++    layout->setSpacing(10);
++    auto* description = new QLabel(tr("Add extra apps to your new system, or leave these fields empty to continue."));
 +    description->setWordWrap(true);
 +    layout->addWidget(description);
++    auto* timing = new QLabel(tr("Additional software installs after the base system and will add to installation time."));
++    timing->setObjectName("softwareTimeNote");
++    timing->setWordWrap(true);
++    layout->addWidget(timing);
++    layout->addSpacing(6);
 +    auto* storage = Calamares::JobQueue::instance()->globalStorage();
 +    for (const auto& kind : {QString("pacman"), QString("flathub")})
 +    {
 +        auto* label = new QLabel(kind == "pacman" ? tr("Pacman package names") : tr("Flathub app IDs"));
++        label->setObjectName("softwareFieldTitle");
 +        layout->addWidget(label);
++        auto* hint = new QLabel(kind == "pacman"
++            ? tr("Packages from your profile's repositories. AUR packages are not supported.")
++            : tr("Flatpak apps from Flathub. Enter the full app ID."));
++        hint->setWordWrap(true);
++        layout->addWidget(hint);
 +        auto* field = new QPlainTextEdit;
 +        field->setObjectName("starchSoftware_" + kind);
 +        field->setAccessibleName(label->text());
++        label->setBuddy(field);
++        field->setPlaceholderText(kind == "pacman" ? tr("Example: inkscape, gimp") : tr("Example: org.blender.Blender"));
++        field->setFixedHeight(field->fontMetrics().lineSpacing() * 3 + 24);
++        field->setMaximumWidth(720);
 +        field->setPlainText(storage->value(field->objectName()).toString());
 +        layout->addWidget(field);
 +        QObject::connect(field, &QPlainTextEdit::textChanged, this, [field, storage] {
 +            storage->insert(field->objectName(), field->toPlainText());
 +        });
 +    }
++    auto* format = new QLabel(tr("Separate entries with spaces, commas, or new lines."));
++    format->setWordWrap(true);
++    layout->addWidget(format);
++    layout->addStretch();
 +    return m_widget;
 +}
 +
