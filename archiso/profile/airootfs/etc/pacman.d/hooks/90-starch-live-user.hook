@@ -2,7 +2,7 @@
 [Trigger]
 Operation = Install
 Type = Package
-Target = sddm
+Target = cosmic-session
 
 [Action]
 Description = Configure the Starch live account
@@ -10,4 +10,5 @@ When = PostTransaction
 Depends = bash
 Depends = shadow
 Depends = fish
+Depends = python
 Exec = /usr/bin/bash /usr/local/lib/starch/setup-live-user

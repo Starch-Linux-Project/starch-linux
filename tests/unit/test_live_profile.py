@@ -14,7 +14,7 @@ class LiveProfile(unittest.TestCase):
         self.assertIn('iso_label="STARCH_', profiledef)
         os_release = (FS / "etc/os-release").read_text()
         self.assertIn('NAME="Starch Linux"', os_release)
-        self.assertIn('PRETTY_NAME="Starch Linux 1.3 Live"', os_release)
+        self.assertIn('PRETTY_NAME="Starch Linux 1.4 Live"', os_release)
         self.assertIn('ID=starch', os_release)
         self.assertEqual((FS / "etc/hostname").read_text().strip(), "starch-live")
         self.assertTrue((FS / "etc/issue").read_text().startswith("Starch Linux Live"))
@@ -36,27 +36,16 @@ class LiveProfile(unittest.TestCase):
     def test_desktop_boot_and_account_hook(self):
         units = FS / "etc/systemd/system"
         self.assertEqual((units / "default.target").readlink().name, "graphical.target")
-        self.assertEqual((units / "display-manager.service").readlink().name, "sddm.service")
-        cfg = configparser.ConfigParser()
-        cfg.read(FS / "etc/sddm.conf.d/10-starch-live.conf")
-        self.assertEqual(cfg["Autologin"]["Session"], "plasma.desktop")
-        self.assertEqual(cfg["Autologin"]["User"], "liveuser")
         hook = configparser.ConfigParser(strict=False)
         hook.read(FS / "etc/pacman.d/hooks/90-starch-live-user.hook")
+        self.assertEqual(hook["Trigger"]["Target"], "cosmic-session")
         script = hook["Action"]["Exec"].split()[-1]
         setup_script = FS / script.lstrip("/")
         self.assertTrue(setup_script.is_file())
         self.assertIn("'liveuser:password' | chpasswd", setup_script.read_text())
+        self.assertIn("systemctl enable --force cosmic-greeter.service", setup_script.read_text())
         self.assertFalse((units / "getty@tty1.service.d/autologin.conf").exists())
         self.assertIn("root:/root:/usr/bin/bash", (FS / "etc/passwd").read_text())
-
-    def test_live_screen_lock_is_disabled_and_shown_as_never(self):
-        cfg = configparser.ConfigParser()
-        cfg.read(FS / "etc/skel/.config/kscreenlockerrc")
-        self.assertFalse(cfg.getboolean("Daemon", "Autolock"))
-        self.assertEqual(cfg.getfloat("Daemon", "Timeout"), 0)
-        self.assertFalse(cfg.getboolean("Daemon", "LockOnResume"))
-        self.assertFalse(cfg.getboolean("Daemon", "LockOnStart"))
 
     def test_network_manager_has_no_competing_enabled_backend(self):
         units = FS / "etc/systemd/system"
@@ -73,13 +62,10 @@ class LiveProfile(unittest.TestCase):
         self.assertEqual(config["logo"]["position"], "top")
         packages = [line.strip() for line in (PROFILE / "packages.x86_64").read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
         self.assertEqual(len(packages), len(set(packages)))
-        self.assertTrue({"fish", "fuse2", "fastfetch", "nano", "btop", "sddm", "plasma-workspace", "plasma-desktop", "plasma-keyboard", "qt6-virtualkeyboard", "networkmanager", "cosmic-terminal", "kdialog", "firefox", "nautilus", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
+        self.assertTrue({"fish", "fuse2", "fastfetch", "nano", "btop", "cosmic-session", "cosmic-greeter", "cosmic-comp", "cosmic-osk", "qt6-virtualkeyboard", "networkmanager", "cosmic-terminal", "kdialog", "firefox", "cosmic-files", "base-devel", "qt6-base", "cmake", "jxrlib", "libavif", "libheif", "nftables"}.issubset(packages))
         self.assertNotIn("konsole", packages)
         self.assertIn("xorg-xwayland", packages)
         self.assertNotIn("plasma-x11-session", packages)
-        self.assertEqual((FS / "etc/skel/.config/kwinrc").read_text().strip(), "[Wayland]\n# Keep the KDE-native virtual keyboard available in every Plasma Wayland\n# session. KWin/Plasma decide when its panel is shown, including tablet and\n# touch focus behavior; this is intentionally not KWIN_IM_SHOW_ALWAYS.\nInputMethod[$e]=/usr/share/applications/org.kde.plasma.keyboard.desktop")
-        self.assertIn("--inputmethod plasma-keyboard", (FS / "etc/sddm.conf.d/10-starch-live.conf").read_text())
-
     def test_nftables_workstation_firewall(self):
         rules = (FS / "etc/nftables.conf").read_text()
         self.assertIn('table inet starch_filter', rules)
@@ -91,10 +77,12 @@ class LiveProfile(unittest.TestCase):
         service = FS / "etc/systemd/system/multi-user.target.wants/nftables.service"
         self.assertEqual(str(service.readlink()), "/usr/lib/systemd/system/nftables.service")
 
-    def test_installer_uses_xwayland_across_sudo(self):
+    def test_installer_uses_wayland_socket_across_sudo(self):
         launcher = (FS / "usr/local/bin/starch-install").read_text()
-        self.assertIn("--preserve-env=DISPLAY,XAUTHORITY", launcher)
-        self.assertIn("export QT_QPA_PLATFORM=xcb", launcher)
+        self.assertIn("--preserve-env=WAYLAND_DISPLAY", launcher)
+        self.assertIn("export QT_QPA_PLATFORM=wayland", launcher)
+        self.assertIn("export XDG_RUNTIME_DIR=/run/starch-installer/qt-runtime", launcher)
+        self.assertIn('WAYLAND_DISPLAY="${XDG_RUNTIME_DIR:?}/$WAYLAND_DISPLAY"', launcher)
         self.assertIn("kdialog --title", launcher)
         self.assertIn('standard "Standard keyboard" on', launcher)
         self.assertIn("--standard-keyboard", launcher)
@@ -113,17 +101,3 @@ class LiveProfile(unittest.TestCase):
         }
         for path, ownership_and_mode in expected.items():
             self.assertIn(f'["{path}"]="{ownership_and_mode}"', profiledef)
-
-    def test_plasma_dark_theme_and_default_launchers(self):
-        kdeglobals = configparser.ConfigParser()
-        kdeglobals.optionxform = str
-        kdeglobals.read(FS / "etc/skel/.config/kdeglobals")
-        self.assertEqual(kdeglobals["KDE"]["LookAndFeelPackage"], "org.starch.desktop")
-        self.assertEqual(kdeglobals["General"]["ColorScheme"], "BreezeDark")
-        theme = FS / "usr/share/plasma/look-and-feel/org.starch.desktop"
-        self.assertTrue((theme / "metadata.json").is_file())
-        layout = (theme / "contents/layouts/org.kde.plasma.desktop-layout.js").read_text()
-        self.assertIn('applications:firefox.desktop', layout)
-        self.assertIn('applications:org.gnome.Nautilus.desktop', layout)
-        self.assertIn('applications:com.system76.CosmicTerm.desktop', layout)
-        self.assertIn('applications:linux-update-utility.desktop', layout)

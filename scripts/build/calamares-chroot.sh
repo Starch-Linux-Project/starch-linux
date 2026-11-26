@@ -46,6 +46,7 @@ packages=("$package_dir"/calamares-starch-[0-9]*.pkg.tar.zst)
     exit 1
 }
 cp -- "${packages[0]}" "$output_dir/"
+printf '%s\n' "${packages[0]##*/}" > "$output_dir/package-filename.txt"
 install -D -m 0644 "$package_dir/calamares-3.3.14.tar.gz" \
     "$output_dir/sources/calamares-3.3.14.tar.gz"
 pacman -Q > "$output_dir/build-environment-packages.txt"

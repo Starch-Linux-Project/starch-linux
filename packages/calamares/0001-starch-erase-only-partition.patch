@@ -171,7 +171,32 @@ diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gu
 index 382c1a7..ee67241 100644
 --- a/src/modules/partition/gui/ChoicePage.cpp
 +++ b/src/modules/partition/gui/ChoicePage.cpp
-@@ -733,7 +733,22 @@ ChoicePage::onLeave()
+@@ -50,6 +50,8 @@
+ #include <QButtonGroup>
+ #include <QComboBox>
+ #include <QDir>
++#include <QFile>
++#include <QFileInfo>
+ #include <QFutureWatcher>
+ #include <QLabel>
+ #include <QListView>
+@@ -439,6 +441,15 @@ ChoicePage::continueApplyDeviceChoice()
+         return;
+     }
+
++    // Bind the displayed selection to this attachment, even if /dev/sdX is reused.
++    const QString node = QFileInfo( currd->deviceNode() ).canonicalFilePath();
++    QFile diskseq( QStringLiteral( "/sys/class/block/%1/diskseq" ).arg( QFileInfo( node ).fileName() ) );
++    QString sequence;
++    if ( diskseq.open( QIODevice::ReadOnly ) )
++    {
++        sequence = QString::fromLatin1( diskseq.readAll().trimmed() );
++    }
++    Calamares::JobQueue::instance()->globalStorage()->insert( "starchDiskSequence", sequence );
+     updateDeviceStatePreview();
+
+     // Preview setup done. Now we show/hide choices as needed.
+@@ -733,7 +744,22 @@ ChoicePage::onLeave()
      {
          if ( !m_isEfi )
          {
@@ -195,7 +220,7 @@ index 382c1a7..ee67241 100644
              {
                  auto d_p = selectedDevice();
                  if ( d_p )
-@@ -1073,7 +1088,7 @@ ChoicePage::updateActionChoicePreview( InstallChoice choice )
+@@ -1073,7 +1099,7 @@ ChoicePage::updateActionChoicePreview( InstallChoice choice )
          layout->addWidget( sizeLabel );
          sizeLabel->setWordWrap( true );
  
@@ -204,7 +229,7 @@ index 382c1a7..ee67241 100644
          {
              layout->addWidget( createBootloaderPanel() );
          }
-@@ -1461,6 +1476,13 @@ ChoicePage::setupActions()
+@@ -1461,6 +1487,13 @@ ChoicePage::setupActions()
          force_uncheck( m_grp, m_replaceButton );
      }
  

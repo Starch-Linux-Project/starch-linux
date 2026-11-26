@@ -13,10 +13,14 @@ if [[ $(id -u) != 0 ]]; then
         virtual) keyboard_option=--on-screen-keyboard ;;
         *) echo "Unexpected installer keyboard selection: $keyboard_mode" >&2; exit 1 ;;
     esac
-    # Qt rejects a Wayland runtime directory owned by the live user after sudo
-    # changes the effective UID to root. Use Plasma's XWayland display for the
-    # privileged installer and carry its authentication into the root process.
-    exec sudo --preserve-env=DISPLAY,XAUTHORITY /usr/local/bin/starch-install "$keyboard_option"
+    # Resolve the session socket before sudo changes the runtime directory.
+    case ${WAYLAND_DISPLAY:-} in
+        /*) ;;
+        ?*) WAYLAND_DISPLAY="${XDG_RUNTIME_DIR:?}/$WAYLAND_DISPLAY" ;;
+        *) echo 'The installer must be started from the live desktop.' >&2; exit 2 ;;
+    esac
+    export WAYLAND_DISPLAY
+    exec sudo --preserve-env=WAYLAND_DISPLAY /usr/local/bin/starch-install "$keyboard_option"
 fi
 if (( $# != 1 )); then
     echo 'The installer must be started from the live desktop.' >&2
@@ -28,10 +32,12 @@ case $1 in
     *) echo 'The installer must be started from the live desktop.' >&2; exit 2 ;;
 esac
 umask 077
-export QT_QPA_PLATFORM=xcb
+[[ ${WAYLAND_DISPLAY:-} == /* && -S $WAYLAND_DISPLAY ]]
+export QT_QPA_PLATFORM=wayland
+export XDG_RUNTIME_DIR=/run/starch-installer/qt-runtime
 export XDG_CONFIG_HOME=/root/.config
 export XDG_CACHE_HOME=/root/.cache
 export XDG_DATA_HOME=/root/.local/share
-mkdir -p /run/starch-installer
+mkdir -p "$XDG_RUNTIME_DIR"
 # Prevent two installers from racing over disks or shared preflight state.
 exec flock --nonblock /run/starch-installer/installer.lock /usr/bin/calamares

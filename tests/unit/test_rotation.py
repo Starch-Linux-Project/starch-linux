@@ -9,7 +9,6 @@ spec = importlib.util.spec_from_file_location('rotation', ROOT / 'packages/starc
 rotation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rotation)
 sys.path.insert(0, str(ROOT / 'scripts/installer'))
-import profiles
 from runtime import read_manifest
 
 COSMIC = '''eDP-2 (enabled)
@@ -115,20 +114,6 @@ class Rotation(unittest.TestCase):
             display.map_touch(output, report, known_only=True)
             self.assertEqual(tuple(map(float, command.call_args.args[4:])),
                              (.5, 0, 0, 0, 1, 0, 0, 0, 1))
-
-    def test_only_lts_profiles_request_rotation_sensors(self):
-        base = read_manifest(ROOT / 'manifests/minimal-packages.txt')
-        for lite, desktop in ((False, 'plasma'), (True, 'xfce'), (False, 'cosmic')):
-            class Storage:
-                def value(self, key):
-                    return {'starchLite': lite, 'starchDesktop': desktop}.get(key)
-            selected = profiles.selected_packages(base, Storage())
-            self.assertEqual('iio-sensor-proxy' in selected, not lite)
-            self.assertEqual('qt6-sensors' in selected, desktop == 'plasma' and not lite)
-            if desktop != 'plasma':
-                self.assertIn('python-gobject', selected)
-                self.assertIn('libnotify', selected)
-            self.assertEqual('xorg-xinput' in selected, desktop == 'xfce')
 
 
 if __name__ == '__main__':

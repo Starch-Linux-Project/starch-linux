@@ -5,7 +5,7 @@ REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 PACKAGE_DIR="$REPO_ROOT/packages/calamares"
 BUILD_ROOT="$REPO_ROOT/build/calamares"
 CHROOT_DIR="$BUILD_ROOT/chroot"
-OUTPUT_DIR="$BUILD_ROOT/repo"
+OUTPUT_DIR="$BUILD_ROOT/cosmic-repo"
 PACMAN_CONFIG="$REPO_ROOT/calamares/pacman.conf"
 CHROOT_HELPER="$REPO_ROOT/scripts/build/calamares-chroot.sh"
 
@@ -45,12 +45,11 @@ fi
 
 mkdir -p -- "$BUILD_ROOT" "$OUTPUT_DIR"
 
-if [[ $1 == --ensure && -f $OUTPUT_DIR/INPUT_SHA256 && -f $OUTPUT_DIR/SHA256SUMS ]] &&
+if [[ $1 == --ensure && -f $OUTPUT_DIR/INPUT_SHA256 && -f $OUTPUT_DIR/SHA256SUMS && -f $OUTPUT_DIR/package-filename.txt ]] &&
     [[ $(<"$OUTPUT_DIR/INPUT_SHA256") == "$input_hash" ]] &&
     (cd "$OUTPUT_DIR" && sha256sum -c SHA256SUMS >/dev/null); then
-    package_file=$(find "$OUTPUT_DIR" -maxdepth 1 -type f \
-        -name 'calamares-starch-[0-9]*.pkg.tar.zst' -printf '%f\n' | sort -V | tail -n1)
-    [[ -n $package_file && -f $OUTPUT_DIR/starch.db.tar.gz ]] || exit 1
+    package_file=$(<"$OUTPUT_DIR/package-filename.txt")
+    [[ -f $OUTPUT_DIR/$package_file && -f $OUTPUT_DIR/starch.db.tar.gz ]] || exit 1
     printf 'Reusing verified Calamares package: %s\nLocal repository: %s\n' \
         "$OUTPUT_DIR/$package_file" "$OUTPUT_DIR/starch.db.tar.gz"
     exit 0
@@ -111,8 +110,8 @@ arch-chroot -N -r "$CHROOT_DIR" /starch/calamares-chroot.sh \
 unshare --map-auto --map-root-user --mount --pid --fork --mount-proc \
     cp -a "$CHROOT_DIR/starch/output/." "$OUTPUT_DIR/"
 
-package_file=$(find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'calamares-starch-[0-9]*.pkg.tar.zst' -printf '%f\n' | sort -V | tail -n1)
-[[ -n $package_file ]] || { echo 'Calamares package was not produced' >&2; exit 1; }
+package_file=$(<"$OUTPUT_DIR/package-filename.txt")
+[[ -f $OUTPUT_DIR/$package_file ]] || { echo 'Calamares package was not produced' >&2; exit 1; }
 
 repo-add -R "$OUTPUT_DIR/starch.db.tar.gz" "$OUTPUT_DIR/$package_file"
 

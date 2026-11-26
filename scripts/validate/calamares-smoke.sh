@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Read-only installer launch: no automated interaction or installation jobs.
 set -euo pipefail
+if [[ -f /etc/starch-live ]]; then
+    exec /usr/local/lib/starch/smoke-installer
+fi
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 build_root="$repo_root/build/calamares"
 chroot_dir="$build_root/chroot"
 profile="$build_root/smoke-profile"
-package=$(find "$build_root/repo" -maxdepth 1 -type f \
-    -name 'calamares-starch-[0-9]*.pkg.tar.zst' -printf '%p\n' | sort -V | tail -n1)
-[[ -n $package ]] || { echo 'No built Calamares package found for smoke test.' >&2; exit 1; }
+package="$build_root/cosmic-repo/$(<"$build_root/cosmic-repo/package-filename.txt")"
+[[ -f $package ]] || { echo 'No built Calamares package found for smoke test.' >&2; exit 1; }
 mkdir -p "$profile"
 cp -a "$repo_root/archiso/profile/." "$profile/"
 python3 "$repo_root/scripts/build/stage-installer.py" "$profile"

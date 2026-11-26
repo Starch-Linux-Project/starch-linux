@@ -1,5 +1,4 @@
 import importlib.util
-import configparser
 import json
 from pathlib import Path
 import subprocess
@@ -25,7 +24,7 @@ class InstallerSafety(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
              patch.object(bootstrap, 'command', side_effect=[RuntimeError('mirror'), None]) as command, \
              patch.object(bootstrap, 'LOG', Path(directory) / 'installer.log'):
-            bootstrap.pacstrap(Path(directory), Path('/pacman.conf'), [], ['base'])
+            bootstrap.pacstrap(Path(directory), Path('/pacman.conf'), ['base'])
         self.assertEqual(command.call_count, 2)
 
     def test_installer_presentation_is_branded_and_erase_is_initial(self):
@@ -75,30 +74,17 @@ class InstallerSafety(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 validate.validate_machine_id(root)
 
-    def test_installed_sddm_uses_live_wayland_compositor(self):
-        class GS:
-            def value(self, name):
-                return {'firmwareType': 'bios'}.get(name)
-
-        with tempfile.TemporaryDirectory() as d:
-            root = Path(d)
-            (root / 'etc').mkdir()
-            (root / 'etc/sddm.conf').write_text('[Autologin]\nUser=example\nSession=plasma.desktop\nRelogin=true\n')
-            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot'):
-                configure.run(GS())
-            installed = configparser.ConfigParser()
-            installed.read(root / 'etc/sddm.conf.d/10-starch.conf')
-            live = configparser.ConfigParser()
-            live.read(ROOT / 'archiso/profile/airootfs/etc/sddm.conf.d/10-starch-live.conf')
-            self.assertEqual(installed['General']['DisplayServer'], 'wayland')
-            self.assertEqual(installed['Wayland']['CompositorCommand'], live['Wayland']['CompositorCommand'])
-            self.assertEqual(installed['Wayland']['CompositorCommand'].split()[0], 'kwin_wayland')
-            self.assertIn('--inputmethod plasma-keyboard', installed['Wayland']['CompositorCommand'])
-            self.assertEqual(installed['Theme']['Current'], 'breeze')
-            self.assertNotIn('Autologin', installed)
-            installed.read(root / 'etc/sddm.conf')
-            self.assertEqual(installed['Autologin']['User'], '')
-            self.assertFalse(installed.getboolean('Autologin', 'Relogin'))
+    def test_reused_disk_node_is_rejected(self):
+        from types import SimpleNamespace
+        import stat
+        gs = SimpleNamespace(value={'starchTargetDisk': '/dev/sda', 'starchDiskSequence': '11'}.get)
+        device = SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=runtime.os.makedev(8, 0))
+        with patch.object(Path, 'resolve', return_value=Path('/dev/sda')), \
+             patch.object(Path, 'stat', return_value=device), \
+             patch.object(Path, 'read_text', side_effect=['11\n', '12\n']):
+            self.assertEqual(runtime.selected_disk(gs), '/dev/sda')
+            with self.assertRaisesRegex(RuntimeError, 'replaced'):
+                runtime.selected_disk(gs)
 
     def test_manifest_rejects_options_shell_text_duplicates_and_empty(self):
         with tempfile.TemporaryDirectory() as d:
@@ -226,6 +212,8 @@ class InstallerSafety(unittest.TestCase):
                                 'partitionChoices': {'install': 'erase', 'swap': 'none'}}.get(name)
                 state = Path(d)
                 with patch.object(preflight, 'STATE', state), \
+                     patch.object(preflight, 'DATA', ROOT / 'calamares'), \
+                     patch.object(preflight, 'resolve_and_retain'), \
                      patch.object(preflight, 'selected_disk', return_value='/dev/vda'), \
                      patch.object(preflight, 'output', return_value='{}'), \
                      patch.object(preflight, 'deactivate_disk'), patch.object(preflight, 'check_disk_tree'), \
@@ -249,7 +237,7 @@ class InstallerSafety(unittest.TestCase):
             (root / 'etc/fstab').write_text('UUID=test-root / ext4 defaults 0 1\n')
             (root / 'usr/share/limine').mkdir(parents=True)
             (root / 'usr/share/limine/limine-bios.sys').write_bytes(b'limine')
-            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot') as chroot:
+            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot') as chroot, patch.object(configure.cosmic, 'configure'):
                 configure.run(GS())
             calls = [c.args[1:] for c in chroot.call_args_list]
             self.assertLess(calls.index(('plymouth-set-default-theme', 'starch')),
@@ -285,8 +273,8 @@ class InstallerSafety(unittest.TestCase):
         self.assertIn('limine', packages)
         self.assertIn('fuse2', packages)
         self.assertTrue({'nano', 'btop'} <= set(packages))
-        self.assertIn('plasma-keyboard', packages)
-        self.assertIn('qt6-virtualkeyboard', packages)
+        self.assertIn('cosmic-osk', packages)
+        self.assertNotIn('qt6-virtualkeyboard', packages)
         self.assertTrue({'base-devel', 'qt6-base', 'cmake', 'jxrlib', 'libavif', 'libheif', 'nftables'}.issubset(packages))
         self.assertNotIn('grub', packages)
         self.assertFalse({'linux', 'calamares', 'archinstall', 'mkinitcpio-archiso', 'plasma-x11-session'} & set(packages))
@@ -311,7 +299,7 @@ class InstallerSafety(unittest.TestCase):
             root = Path(d)
             (root / 'etc').mkdir()
             (root / 'etc/fstab').write_text(f'UUID={uuid} / ext4 defaults 0 1\n')
-            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot'):
+            with patch.object(configure, 'target', return_value=root), patch.object(configure, 'chroot'), patch.object(configure.cosmic, 'configure'):
                 configure.run(GS())
             self.assertEqual((root / 'etc/kernel/cmdline').read_text(),
                              f'root=UUID={uuid} rw rootfstype=ext4\n')
@@ -386,15 +374,9 @@ class InstallerSafety(unittest.TestCase):
                          'etc/systemd/sleep.conf.d', 'etc/skel/.config/kscreenlockerrc',
                          'etc/skel/.config/powerdevilrc'):
                 self.assertFalse((overlay / path).exists(), path)
-            lock_config = configparser.ConfigParser()
-            plasma = overlay.parent / 'desktop-overlays/plasma'
-            lock_config.read(plasma / 'etc/xdg/kscreenlockerrc')
-            self.assertNotIn('Daemon', lock_config)
             self.assertEqual((overlay / 'usr/share/starch/fastfetch-text').read_bytes(), (ROOT / 'fastfetch-text').read_bytes())
             self.assertEqual((overlay / 'etc/nftables.conf').read_text(),
                              (ROOT / 'archiso/profile/airootfs/etc/nftables.conf').read_text())
-            self.assertEqual((plasma / 'etc/skel/.config/kwinrc').read_text(),
-                             (ROOT / 'archiso/profile/airootfs/etc/skel/.config/kwinrc').read_text())
             theme = overlay / 'usr/share/plymouth/themes/starch'
             self.assertEqual((theme / 'logo.png').read_bytes(),
                              (ROOT / 'calamares/branding/starch/starchlinux.png').read_bytes())
@@ -437,23 +419,10 @@ class InstallerSafety(unittest.TestCase):
             (inputs / 'landscapes/Starch_Night.PNG').write_bytes(b'png fixture')
             (inputs / 'notes.txt').write_text('not a wallpaper')
             stage.stage_wallpapers(fs, inputs)
-            packages = list((fs / 'usr/share/wallpapers').iterdir())
-            self.assertEqual(len(packages), 1)
-            package = packages[0]
-            metadata = json.loads((package / 'metadata.json').read_text())
-            self.assertEqual(metadata['KPlugin']['Name'], 'Starch Night')
-            self.assertEqual(metadata['KPackageStructure'], 'Plasma/Wallpaper')
-            image = package / 'contents/images/3840x2160.png'
-            self.assertEqual(image.read_bytes(), b'png fixture')
-            installed = fs / 'usr/share/starch-installer/target-overlay/usr/share/wallpapers' / package.name
-            self.assertEqual((installed / 'metadata.json').read_text(), (package / 'metadata.json').read_text())
-            self.assertEqual((installed / 'contents/images/3840x2160.png').read_bytes(), b'png fixture')
-            backgrounds = list((fs / 'usr/share/backgrounds/starch').iterdir())
+            overlay = fs / 'usr/share/starch-installer/target-overlay'
+            backgrounds = list((overlay / 'usr/share/backgrounds/starch').iterdir())
             self.assertEqual(len(backgrounds), 1)
-            background = backgrounds[0]
-            self.assertEqual(background.read_bytes(), b'png fixture')
-            installed_background = fs / 'usr/share/starch-installer/target-overlay' / background.relative_to(fs)
-            self.assertEqual(installed_background.read_bytes(), b'png fixture')
+            self.assertEqual(backgrounds[0].read_bytes(), b'png fixture')
             self.assertFalse(list((fs / 'usr/share/starch-installer/desktop-overlays').rglob('all')))
 
     def test_evergreen_is_an_optional_cosmic_default(self):
@@ -467,10 +436,8 @@ class InstallerSafety(unittest.TestCase):
             inputs.mkdir()
             (inputs / 'wyxina-tree-8559118.jpg').write_bytes(b'evergreen fixture')
             stage.stage_wallpapers(fs, inputs)
-            default = fs / 'usr/share/backgrounds/starch/evergreen.jpg'
+            default = fs / 'usr/share/starch-installer/target-overlay/usr/share/backgrounds/starch/evergreen.jpg'
             self.assertEqual(default.read_bytes(), b'evergreen fixture')
-            for desktop in ('cosmic', 'cosmic-lite'):
-                selection = (fs / 'usr/share/starch-installer/desktop-overlays' / desktop
-                             / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all')
-                self.assertIn('Path("/usr/share/backgrounds/starch/evergreen.jpg")',
-                              selection.read_text())
+            selection = (fs / 'usr/share/starch-installer/desktop-overlays/cosmic'
+                         / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all')
+            self.assertIn('Path("/usr/share/backgrounds/starch/evergreen.jpg")', selection.read_text())

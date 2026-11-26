@@ -44,6 +44,8 @@ def write_defaults(root):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('w') as stream:
         parser.write(stream, space_around_delimiters=False)
+    # Calamares runs with a private umask, but desktop users read this file.
+    path.chmod(0o644)
 
 
 def validate_defaults(root):

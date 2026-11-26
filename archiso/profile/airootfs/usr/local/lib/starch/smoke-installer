@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Run in a terminal on the booted live desktop. Quit before starting an install.
+set -euo pipefail
+[[ -f /etc/starch-live && $(id -un) == liveuser && -n ${WAYLAND_DISPLAY:-} ]]
+socket=$WAYLAND_DISPLAY
+[[ $socket == /* ]] || socket="$XDG_RUNTIME_DIR/$socket"
+[[ -S $socket ]]
+set +m  # Keep the background child from becoming a group leader before setsid.
+launcher=
+cleanup() {
+    if [[ -n $launcher ]]; then
+        sudo pkill -TERM -s "$launcher" || true
+    fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+for mode in standard virtual; do
+    if pgrep -u root -x calamares >/dev/null; then
+        echo "Close the running installer before starting this check." >&2
+        exit 1
+    fi
+    echo "Select the $mode keyboard in the chooser. Leave Calamares open."
+    # A private session ties the chooser, sudo and installer to this test.
+    setsid /usr/local/bin/starch-install &
+    launcher=$!
+    pid=
+    for ((i=0; i<120; i++)); do
+        if pid=$(pgrep -s "$launcher" -u root -x calamares); then break; fi
+        ps -p "$launcher" >/dev/null || break
+        sleep 1
+    done
+    [[ $pid =~ ^[0-9]+$ ]] || { echo "Expected one running Calamares process" >&2; exit 1; }
+    env_lines=$(sudo cat "/proc/$pid/environ" | tr '\0' '\n')
+    grep -Fxq "WAYLAND_DISPLAY=$socket" <<<"$env_lines"
+    grep -Fxq 'QT_QPA_PLATFORM=wayland' <<<"$env_lines"
+    if [[ $mode == virtual ]]; then
+        grep -Fxq 'QT_IM_MODULE=qtvirtualkeyboard' <<<"$env_lines"
+    elif grep -q '^QT_IM_MODULE=' <<<"$env_lines"; then
+        exit 1
+    fi
+    echo "Verify the welcome page and type in a Users password field using the selected keyboard."
+    echo "Cancel the installer before applying changes."
+    # Calamares 3.3.14 exits successfully when the user confirms cancellation.
+    wait "$launcher"
+    launcher=
+    read -r -p "Did the welcome page and password input work ($mode)? [y/N] " answer
+    [[ $answer == [yY] ]] || exit 1
+done
+echo "Both live installer launch modes passed."
