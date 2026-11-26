@@ -1,17 +1,8 @@
 # Automatic screen rotation
 
-Automatic gyro rotation is configured for Standard (Linux LTS) only:
-
-| Profile | Rotation owner |
-| --- | --- |
-| Standard Plasma / live ISO | KWin + Qt Sensors |
-| Standard COSMIC | Starch session helper + cosmic-randr |
-| Starch Lite (Xfce) | No Starch automatic rotation integration |
-
-Standard installs `iio-sensor-proxy`, using its packaged systemd/udev
-activation. Lite does not request the sensor packages or install a custom
-sensor service. Only Standard COSMIC receives the rotation helper, autostart
-and rotation-lock launcher. Plasma keeps its native controls.
+The live and installed COSMIC desktops include the Starch rotation helper,
+`cosmic-randr`, and `iio-sensor-proxy`. The sensor package uses its packaged
+systemd and udev activation.
 
 The COSMIC helper claims the accelerometer only in an active, unlocked session.
 It debounces readings, retries sensor discovery and daemon restarts, and rotates
@@ -36,7 +27,7 @@ when needed.
 
 ## Verification
 
-Unit tests cover profile selection and overlay isolation, padded display
+Unit tests cover overlay parity, padded display
 reports, mode preservation and dock/mirror exclusion. The private D-Bus test
 is `python3 tests/integration/rotation-dbus.py` (requires PyGObject and permission
 to bind a temporary Unix socket). Hardware acceptance remains necessary:
@@ -47,7 +38,6 @@ to bind a temporary Unix socket). Hardware acceptance remains necessary:
 4. Confirm sensorless machines and external displays remain unaffected.
 
 Maintained source: `packages/starch-rotation/root`. The installer stages it as
-`rotation-overlay` and copies it only to Standard COSMIC before user creation.
-The live Plasma session is unchanged.
+`rotation-overlay` and copies it to the live and installed roots before user creation.
 
 Source interface: [COSMIC RandR 1.11 CLI](https://github.com/pop-os/cosmic-randr/blob/epoch-1.11.0/cli/src/main.rs).

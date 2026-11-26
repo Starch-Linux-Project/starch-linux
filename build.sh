@@ -72,7 +72,6 @@ if (( EUID != 0 )); then
 fi
 # Build/reuse the pinned installer in an isolated official-Arch build root.
 "$REPO_ROOT/scripts/build/calamares.sh" --ensure
-"$REPO_ROOT/scripts/build/starch-lite.sh" --ensure
 # Fresh paths avoid mkarchiso's run-once markers reusing an older profile.
 run_dir=$(mktemp -d "$REPO_ROOT/build/work/run-XXXXXXXX")
 run_id=${run_dir##*/}
@@ -96,7 +95,7 @@ cp -a -- "$REPO_ROOT/archiso/profile" "$run_dir/profile"
 cp -a -- "$REPO_ROOT/luu-input" "$run_dir/luu-input"
 cp -a -- "$REPO_ROOT/wallpapers" "$run_dir/wallpapers"
 python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input" "$run_dir/wallpapers"
-cp -a -- "$REPO_ROOT/build/calamares/repo" "$run_dir/installer-repo"
+cp -a -- "$REPO_ROOT/build/calamares/cosmic-repo" "$run_dir/installer-repo"
 printf '\ncalamares-starch\n' >>"$run_dir/profile/packages.x86_64"
 printf '\n[starch]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$run_dir/installer-repo" >>"$run_dir/profile/pacman.conf"
 # Rootless pacstrap cannot write to the host's root-owned GPGDir. Build a
@@ -113,6 +112,20 @@ import pathlib, sys
 p = pathlib.Path(sys.argv[1])
 p.write_text(p.read_text().replace('[options]\n', '[options]\nCacheDir = ' + sys.argv[2] + '\nGPGDir = ' + sys.argv[3] + '\n', 1))
 CONFIG
+# Resolve against a fresh, empty local database so host packages cannot hide
+# dependencies. Use the same snapshot repository and keyring as mkarchiso.
+live_db="$run_dir/live-preflight-db"
+mkdir -p "$live_db/local"
+live_pacman=(pacman --config "$run_dir/profile/pacman.conf" --dbpath "$live_db"
+    --logfile "$run_dir/live-preflight.log")
+if (( EUID != 0 )); then
+    live_pacman=(unshare --map-auto --map-root-user -- "${live_pacman[@]}")
+fi
+"${live_pacman[@]}" -Sy --noconfirm
+mapfile -t live_requests < <(sed 's/#.*//; /^[[:space:]]*$/d' "$run_dir/profile/packages.x86_64")
+"${live_pacman[@]}" -Sp --noconfirm --print-format '%r %n %v' -- "${live_requests[@]}" >"$run_dir/live-resolution.txt"
+PYTHONPATH="$REPO_ROOT/scripts/installer" python3 -B -c \
+    'from profiles import check_cosmic_closure; import sys; check_cosmic_closure(sys.stdin.read(), live=True)' <"$run_dir/live-resolution.txt"
 if ! pacman -Q archiso >"$output/build-report.txt"; then
     printf 'archiso package version unavailable (host pacman query failed)\n' >"$output/build-report.txt"
     sha256sum -- "$(command -v mkarchiso)" >>"$output/build-report.txt"
@@ -121,9 +134,7 @@ cat "$run_dir/installer-repo/package-version.txt" >>"$output/build-report.txt"
 cp -- "$REPO_ROOT/manifests/minimal-packages.txt" "$output/target-requested-packages.txt"
 cp -a -- "$run_dir/installer-repo/sources" "$output/calamares-sources"
 cp -a -- "$run_dir/installer-repo/notices" "$output/calamares-notices"
-tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares packages/starch-lite wallpapers tests README.md docs/third-party-provenance.tsv docs/starch-lite.md
-cp -a -- "$REPO_ROOT/build/starch-lite/artix-repo/sources" "$output/starch-lite-sources"
-cp -- "$REPO_ROOT/build/starch-lite/artix-repo/bundle.json" "$output/starch-lite-bundle.json"
+tar -C "$REPO_ROOT" -czf "$output/starch-installer-source.tar.gz" build.sh scripts calamares manifests packages/calamares packages/starch-cosmic packages/starch-rotation packages/linux-update-utility wallpapers tests README.md docs/third-party-provenance.tsv docs/cosmic.md
 cp -- "$run_dir/profile/packages.x86_64" "$output/requested-packages.txt"
 # Preserve the exact source profile, including symlinks and file permissions.
 tar -C "$run_dir" -czf "$output/profile-source.tar.gz" profile
@@ -131,23 +142,32 @@ sha256sum "$output/profile-source.tar.gz" >>"$output/build-report.txt"
 mkarchiso -v -w "$run_dir/work" -o "$output" "$run_dir/profile"
 cp -- "$run_dir/work/iso/arch/pkglist.x86_64.txt" "$output/live-packages.txt"
 if (( EUID == 0 )); then
-    python3 "$REPO_ROOT/scripts/validate/built-live.py" "$run_dir/work/x86_64/airootfs"
+    python3 "$REPO_ROOT/scripts/validate/built-live.py" "$run_dir/work/x86_64/airootfs" "$output/live-packages.txt"
 else
-    unshare --map-auto --map-root-user -- python3 "$REPO_ROOT/scripts/validate/built-live.py" "$run_dir/work/x86_64/airootfs"
+    unshare --map-auto --map-root-user -- python3 "$REPO_ROOT/scripts/validate/built-live.py" "$run_dir/work/x86_64/airootfs" "$output/live-packages.txt"
 fi
-awk '$1 == "linux" || $1 == "plasma-workspace" || $1 == "sddm" || $1 == "fastfetch"' "$output/live-packages.txt" >>"$output/build-report.txt"
+awk '$1 == "linux" || $1 == "cosmic-session" || $1 == "cosmic-greeter" || $1 == "fastfetch"' "$output/live-packages.txt" >>"$output/build-report.txt"
 isos=("$output/"*.iso)
 (( ${#isos[@]} == 1 )) || { echo 'Expected exactly one ISO' >&2; exit 1; }
-(cd -- "$output" && sha256sum -- "${isos[0]##*/}" >SHA256SUMS)
-printf 'Build and filesystem validation passed; VM boot remains untested.\n' >>"$output/build-report.txt"
 if [[ $1 == --compile ]]; then
-    # Include the run ID so same-day builds coexist. Link without overwriting.
-    destination="$REPO_ROOT/starch-out/${isos[0]##*/}"
-    destination="${destination%.iso}-$run_id.iso"
-    ln -- "${isos[0]}" "$destination"
+    # Hash the final name in the private run before publishing the pair.
+    final_name="${isos[0]##*/}"
+    final_name="${final_name%.iso}-$run_id.iso"
+    mv -- "${isos[0]}" "$output/$final_name"
+    isos=("$output/$final_name")
+fi
+(cd -- "$output" && sha256sum -- "${isos[0]##*/}" >SHA256SUMS)
+if [[ $1 == --compile ]]; then
+    destination="$REPO_ROOT/starch-out/$final_name"
+    ln -- "$output/SHA256SUMS" "$destination.sha256"
+    if ! ln -- "${isos[0]}" "$destination"; then
+        rm -- "$destination.sha256"
+        exit 1
+    fi
     rm -- "${isos[0]}"
     isos=("$destination")
 fi
+printf 'Build and filesystem validation passed; VM boot remains untested.\n' >>"$output/build-report.txt"
 printf 'ISO ready: %s\n' "${isos[0]}"
 build_elapsed_seconds=$((SECONDS - build_started_seconds))
 printf 'Total build time: %dh %02dm %02ds\n' \

@@ -1,8 +1,6 @@
-import configparser
 import re
 from runtime import chroot, output, preserve_logs, read_manifest, target
-from profiles import is_lite, has_xfce, has_cosmic, kernel_name, COSMIC_FORBIDDEN, COSMIC_PACKAGES
-import lite
+from profiles import KERNEL, COSMIC_FORBIDDEN, COSMIC_PACKAGES
 import cosmic
 
 
@@ -18,36 +16,23 @@ def validate_machine_id(root):
 
 def run(gs):
     root = target(gs)
-    kernel = kernel_name(gs)
+    kernel = KERNEL
     validate_machine_id(root)
     chroot(root, 'cmp', '/etc/machine-id', '/var/lib/dbus/machine-id')
-    if is_lite(gs):
-        lite.validate(root, xfce=has_xfce(gs), cosmic=has_cosmic(gs))
-        chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-openrc')
-    else:
-        chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
+    chroot(root, 'pacman', '-Qk', 'dbus', 'dbus-broker', 'dbus-broker-units')
     chroot(root, 'getent', 'passwd', 'dbus')
     chroot(root, 'getent', 'group', 'dbus')
-    if not is_lite(gs):
-        chroot(root, 'test', '-x', '/usr/lib/iio-sensor-proxy')
-        chroot(root, 'test', '-x', '/usr/bin/monitor-sensor')
-        chroot(root, 'pacman', '-Qk', 'iio-sensor-proxy')
-        if has_cosmic(gs):
-            chroot(root, 'python3', '-c', 'from gi.repository import Gio, GLib')
-            for path in ('/usr/lib/starch/rotation.py', '/etc/xdg/autostart/starch-rotation.desktop'):
-                chroot(root, 'test', '-r', path)
-    for path in (() if is_lite(gs) else ('/usr/bin/dbus-broker-launch', '/usr/bin/dbus-broker')):
+    chroot(root, 'test', '-x', '/usr/lib/iio-sensor-proxy')
+    chroot(root, 'test', '-x', '/usr/bin/monitor-sensor')
+    chroot(root, 'pacman', '-Qk', 'iio-sensor-proxy')
+    chroot(root, 'python3', '-c', 'from gi.repository import Gio, GLib')
+    for path in ('/usr/lib/starch/rotation.py', '/etc/xdg/autostart/starch-rotation.desktop'):
+        chroot(root, 'test', '-r', path)
+    for path in ('/usr/bin/dbus-broker-launch', '/usr/bin/dbus-broker'):
         chroot(root, 'test', '-x', path)
-    for unit in (() if is_lite(gs) else ('dbus.service', 'sockets.target.wants/dbus.socket')):
+    for unit in ('dbus.service', 'sockets.target.wants/dbus.socket'):
         chroot(root, 'test', '-f', '/usr/lib/systemd/system/' + unit)
-    # Includes static units; also rejects disabled or masked activation.
-    if not is_lite(gs):
-        chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
-    if not has_xfce(gs) and not has_cosmic(gs):
-        sddm = configparser.ConfigParser(interpolation=None)
-        sddm.read(root / 'etc/sddm.conf')
-        if sddm.get('Autologin', 'User', fallback=None) != '' or sddm.getboolean('Autologin', 'Relogin', fallback=True):
-            raise RuntimeError('Installed SDDM must require login; autologin is live-only.')
+    chroot(root, 'systemctl', 'is-enabled', 'dbus.socket')
     username = gs.value('username')
     users = {p[0]: p for p in (line.split(':') for line in (root / 'etc/passwd').read_text().splitlines())}
     if not isinstance(username, str) or username not in users or users[username][6] != '/usr/bin/fish':
@@ -57,24 +42,12 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
-    if has_xfce(gs):
-        lite.validate_user_runlevels(root, home, int(users[username][2]), int(users[username][3]))
-    if has_cosmic(gs):
-        cosmic.validate(root, home, lite=is_lite(gs))
-    elif not has_xfce(gs):
-        if not (home / '.config/kdeglobals').is_file() or not (home / '.config/kwinrc').is_file():
-            raise RuntimeError('Desktop or virtual-keyboard defaults were not applied to the installed user.')
-        kwinrc = configparser.ConfigParser(interpolation=None)
-        kwinrc.read(home / '.config/kwinrc')
-        if kwinrc.get('Wayland', 'InputMethod[$e]', fallback=None) != '/usr/share/applications/org.kde.plasma.keyboard.desktop':
-            raise RuntimeError('Installed user has no Plasma Keyboard input-method default.')
+    cosmic.validate(root, home)
     shadow = {p[0]: p[1] for p in (line.split(':') for line in (root / 'etc/shadow').read_text().splitlines())}
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
         raise RuntimeError('Installed account password state is incorrect.')
-    desktop_file = ('usr/share/starch-lite/xsessions/starch-xfce.desktop' if has_xfce(gs)
-                    else 'usr/share/wayland-sessions/cosmic.desktop' if has_cosmic(gs)
-                    else 'usr/share/wayland-sessions/plasma.desktop')
-    for name in (f'boot/vmlinuz-{kernel}', 'etc/locale.conf', 'etc/hostname', desktop_file):
+    for name in (f'boot/vmlinuz-{kernel}', 'etc/locale.conf', 'etc/hostname',
+                 'usr/share/wayland-sessions/cosmic.desktop'):
         if not (root / name).is_file() or not (root / name).stat().st_size:
             raise RuntimeError(f'Missing installed file: {name}')
     for name, mode in {
@@ -90,15 +63,7 @@ def run(gs):
     if 'NOPASSWD' in (root / 'etc/sudoers.d/10-installer').read_text():
         raise RuntimeError('Installed sudo must require authentication.')
     chroot(root, 'visudo', '-c')
-    if has_xfce(gs):
-        chroot(root, 'pacman', '-Qk', 'xfce4-session', 'xfwm4', 'thunar', 'xorg-server', 'polkit-gnome')
-    elif not has_cosmic(gs):
-        chroot(root, 'test', '-x', '/usr/bin/kwin_wayland')
-        chroot(root, 'test', '-x', '/usr/bin/plasma-keyboard')
-        chroot(root, 'test', '-f', '/usr/share/applications/org.kde.plasma.keyboard.desktop')
-        chroot(root, 'test', '-f', '/usr/lib/qt6/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.so')
-        chroot(root, 'pacman', '-Qk', 'plasma-keyboard', 'qt6-virtualkeyboard')
-    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'greetd' if has_cosmic(gs) else 'lightdm' if has_xfce(gs) else 'sddm', 'networkmanager')
+    chroot(root, 'pacman', '-Qk', 'base', kernel, 'limine', 'fish', 'greetd', 'networkmanager')
     locales = output(['arch-chroot', root, 'locale', '-a'])
     lang = re.search(r'^LANG=(.+)$', (root / 'etc/locale.conf').read_text(), re.M)
     normalize = lambda value: value.strip('"').lower().replace('-', '')
@@ -107,13 +72,8 @@ def run(gs):
     if not (root / 'etc/localtime').is_symlink():
         raise RuntimeError('The selected timezone was not configured.')
     chroot(root, 'nft', '--check', '--file', '/etc/nftables.conf')
-    services = () if is_lite(gs) else [
-        'cosmic-greeter.service' if has_cosmic(gs) else 'sddm.service',
-        'NetworkManager.service', 'nftables.service', 'bluetooth.service',
-    ]
-    if has_cosmic(gs) and not is_lite(gs):
-        services.append('power-profiles-daemon.service')
-    for service in services:
+    for service in ('cosmic-greeter.service', 'NetworkManager.service', 'nftables.service',
+                    'bluetooth.service', 'power-profiles-daemon.service'):
         chroot(root, 'systemctl', 'is-enabled', service)
     fstab = (root / 'etc/fstab').read_text()
     if not re.search(r'^UUID=\S+\s+/\s+ext4\s', fstab, re.M):
@@ -129,8 +89,6 @@ def run(gs):
         limine = (root / 'boot/efi/EFI/Limine/limine.conf').read_text()
         if 'protocol: efi' not in limine or f'EFI/Linux/starch-{kernel}.efi' not in limine:
             raise RuntimeError('Limine has no Starch UKI entry.')
-        if is_lite(gs) and 'init=/usr/bin/openrc-init' not in (root / 'etc/kernel/cmdline').read_text():
-            raise RuntimeError('Lite UKI command line does not select OpenRC.')
     else:
         if not re.search(r'^UUID=\S+\s+/boot\s+vfat\s', fstab, re.M):
             raise RuntimeError('FAT32 BIOS /boot mount is missing from fstab.')
@@ -142,33 +100,18 @@ def run(gs):
         if (f'path: boot():/vmlinuz-{kernel}' not in config or
                 f'module_path: boot():/initramfs-{kernel}.img' not in config):
             raise RuntimeError('Limine BIOS must load the kernel and initramfs from FAT32 /boot.')
-        if is_lite(gs) and 'init=/usr/bin/openrc-init' not in config:
-            raise RuntimeError('Lite BIOS command line does not select OpenRC.')
     versions = output(['arch-chroot', root, 'pacman', '-Q'])
     requested = read_manifest(root / 'var/log/starch-installer/requested-packages.txt')
     missing = set(requested) - {line.split()[0] for line in versions.splitlines()}
     if missing:
         raise RuntimeError('Requested target packages are missing: ' + ', '.join(sorted(missing)))
     forbidden = {'calamares', 'grub', 'mkinitcpio-archiso', 'archinstall', 'linux'}
-    if is_lite(gs):
-        # Artix Plasma depends on plasma-x11-session; SDDM still exposes only
-        # our Wayland session. Do not apply this exception to standard Starch.
-        forbidden.update({'systemd', 'systemd-sysvcompat', 'linux-lts',
-                          'starch-lite-openrc', 'starch-lite-elogind'})
-    else:
-        forbidden.add('plasma-x11-session')
-    if has_xfce(gs):
-        forbidden.update({'sddm', 'sddm-openrc', 'plasma-desktop', 'plasma-workspace', 'plasma-x11-session',
-                          'kwin', 'kwin-x11', 'plasma-keyboard', 'xdg-desktop-portal-kde'})
-    if has_cosmic(gs):
-        forbidden.update(COSMIC_FORBIDDEN)
-        if is_lite(gs):
-            forbidden.add('systemd-libs')
-        resolved = (root / 'var/log/starch-installer/resolved-packages.txt').read_text()
-        audited = {name: version for repo, name, version in (line.split() for line in resolved.splitlines())}
-        installed = dict(line.split() for line in versions.splitlines())
-        if any(installed.get(name) != audited.get(name) for name in COSMIC_PACKAGES):
-            raise RuntimeError('COSMIC packages changed after preflight; review defaults and session compatibility.')
+    forbidden.update(COSMIC_FORBIDDEN)
+    resolved = (root / 'var/log/starch-installer/resolved-packages.txt').read_text()
+    audited = {name: version for repo, name, version in (line.split() for line in resolved.splitlines())}
+    installed = dict(line.split() for line in versions.splitlines())
+    if any(installed.get(name) != audited.get(name) for name in COSMIC_PACKAGES):
+        raise RuntimeError('COSMIC packages changed after preflight; review defaults and session compatibility.')
     if any(line.split()[0] in forbidden for line in versions.splitlines()):
         raise RuntimeError('Installer/live-only packages leaked into the target.')
     preserve_logs(root)

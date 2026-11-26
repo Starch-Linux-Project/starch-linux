@@ -2,7 +2,7 @@
 
 pkgname=calamares-starch
 pkgver=3.3.14
-pkgrel=16
+pkgrel=18
 pkgdesc='Qt 6 system installer framework, reduced for Starch Linux'
 arch=(x86_64)
 url='https://calamares.io/'
@@ -36,18 +36,16 @@ source=(
     0002-skip-os-prober.patch
     0003-live-only-autologin.patch
     0004-starch-installer-presentation.patch
-    0005-starch-advanced-page.patch
     0006-starch-additional-software.patch
 )
 sha256sums=(
     5547f80db067dea923ae693ba6bb88eb2b2eeac1da3ebec42fce453e31c290c0
     50a08d24aa649405b7e6173b77a73fe7a828de709675778abccf4c8b27d73f82
-    1abb45fe9d2a1c5d74c96e60591407a454c744a40a896c290072b69805f5bef4
+    179d0ffb19b114f5055e7f0da239a52685e7003cb48f146ad1b36efc71809084
     24a957415dc4b98895f8ec6bb3224c74fab70b92685fc3b1e1d57967c563bcd8
     67385cec233320228c72ea51791bb8ed2ac42c684d7e69d860cba88d5a4b63b4
     88f7f9c1085ee2c6b3827e4db048868b36188603ecf68aed890562c24f71c530
-    3ff1f27b39b4f71c60976958dbc6a355873255a5d768066d2afe270a89032cce
-    31a3fcd672befb9128bbd89644ed6d69391009b11648674b07f8bb89ada4c4e6
+    534c9111f765da0eedcd2a82b4cae9523e83bf22f6c95280c6bf23b9c971c0e5
 )
 
 prepare() {
@@ -56,14 +54,12 @@ prepare() {
     patch -d "calamares-${pkgver}" -Np1 < 0002-skip-os-prober.patch
     patch -d "calamares-${pkgver}" -Np1 < 0003-live-only-autologin.patch
     patch -d "calamares-${pkgver}" -Np1 < 0004-starch-installer-presentation.patch
-    patch -d "calamares-${pkgver}" -Np1 < 0005-starch-advanced-page.patch
     patch -d "calamares-${pkgver}" -Np1 < 0006-starch-additional-software.patch
 }
 
 build() {
     local -a wanted_modules=(
         bootloader
-        displaymanager
         finished
         fstab
         hwclock
@@ -75,7 +71,6 @@ build() {
         partition
         services-systemd
         shellprocess
-        starchadvanced
         starchsoftware
         summary
         umount
@@ -120,7 +115,7 @@ package() {
 check() {
     local module schema config
     local -a checked_modules=(
-        bootloader displaymanager fstab mount partition services-systemd
+        bootloader fstab mount partition services-systemd
     )
 
     for module in "${checked_modules[@]}"; do

@@ -16,6 +16,7 @@ import time
 
 DATA = Path('/usr/share/starch-installer')
 STATE = Path('/run/starch-installer')
+PACKAGE_CACHE = Path('/tmp/starch-installer-packages')
 LOG = Path('/var/log/starch-installer.log')
 
 
@@ -192,8 +193,13 @@ def selected_disk(gs):
     if not isinstance(disk, str) or not disk.startswith('/dev/'):
         raise RuntimeError('The selected erase-disk target is missing. No disks were changed.')
     disk = str(Path(disk).resolve())
-    if not stat.S_ISBLK(Path(disk).stat().st_mode):
+    device = Path(disk).stat()
+    if not stat.S_ISBLK(device.st_mode):
         raise RuntimeError('The selected target is not a block device.')
+    sequence = gs.value('starchDiskSequence')
+    diskseq = Path('/sys/dev/block') / f'{os.major(device.st_rdev)}:{os.minor(device.st_rdev)}' / 'diskseq'
+    if not isinstance(sequence, str) or not sequence.isdecimal() or diskseq.read_text().strip() != sequence:
+        raise RuntimeError('The selected disk was disconnected or replaced. Select the disk again.')
     return disk
 
 
@@ -208,8 +214,9 @@ def target(gs):
     if not root.is_mount() or root.resolve() == Path('/'):
         raise RuntimeError('The installation root is not a separate mounted filesystem.')
     state = json.loads((STATE / 'selection.json').read_text())
-    from profiles import profile_name
-    if state.get('profile', 'standard') != profile_name(gs):
+    from profiles import PROFILE, validate_selection
+    validate_selection(gs)
+    if state.get('profile') != PROFILE:
         raise RuntimeError('The installation profile changed after preflight.')
     disk = selected_disk(gs)
     if disk != state['disk']:

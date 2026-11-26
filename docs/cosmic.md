@@ -1,9 +1,10 @@
 # COSMIC LTS
 
-Select **COSMIC LTS** on the Installation Profiles page. It uses Arch packages,
-Linux LTS, systemd, and COSMIC Wayland with COSMIC Greeter (greetd).
+Starch Linux uses Arch packages, Linux LTS, systemd, and COSMIC Wayland with
+COSMIC Greeter (greetd). The live ISO uses the Arch kernel and starts the same
+desktop with a temporary live account.
 
-The profile includes COSMIC Files, Terminal, Text Editor, desktop portals,
+The desktop includes COSMIC Files, Terminal, Text Editor, desktop portals,
 GNOME Keyring, and Starch desktop defaults. The on-screen keyboard opens
 manually; automatic screen rotation uses the Starch session helper.
 See [keyboard](virtual-keyboard.md) and [rotation](rotation.md) controls.
@@ -60,9 +61,7 @@ that PAM file is absent. We leave that selection and fallback unchanged; the
 launcher does not fabricate a runtime directory or bypass account/session checks.
 
 COSMIC OSD 1:1.11.0-1 registers its native polkit agent, so the additional GNOME
-agent is no longer explicitly installed or autostarted for COSMIC. Lite's agent
-is unchanged. The retired overlay files remain only in the dormant COSMIC/OpenRC
-compatibility overlay; that combination is still rejected by profile selection.
+agent is absent from fresh installations and live media.
 
 `profiles.py` continues to audit the resolved transaction and reviewed COSMIC
 1.11.0 components. Arch greeter and OSD additionally require the reviewed
@@ -81,8 +80,7 @@ and [package-derived test fixtures](../tests/fixtures/cosmic-arch-1.11.0/README.
 ## Verification and existing systems
 
 Unit tests cover vendor-unit preservation, offline display-manager enablement,
-PAM/keyring rules, overlay cleanup, native-agent selection and unchanged profile
-boundaries. They do not prove successful login or authentication.
+PAM/keyring rules, overlay cleanup, native-agent selection, and live/installed overlay parity. They do not prove successful login or authentication.
 
 Before release, test a fresh VM and an existing-installation clone: cold boot,
 login/logout, incorrect passwords and account restrictions, lock/unlock,

@@ -87,7 +87,7 @@ class AdditionalSoftware(unittest.TestCase):
     def test_page_and_final_job_order(self):
         sequence = yaml.safe_load((ROOT / 'calamares/settings.conf').read_text())['sequence']
         pages = sequence[0]['show']
-        self.assertEqual(pages[pages.index('starchadvanced') + 1], 'starchsoftware')
+        self.assertEqual(pages[pages.index('users') + 1], 'starchsoftware')
         self.assertEqual(sequence[1]['exec'][-3:], ['starch-validate', 'starchsoftware', 'umount'])
 
     def test_verification_failure_is_not_success(self):

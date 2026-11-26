@@ -8,29 +8,6 @@
     padding: 16px;
 }
 
-#starchProfilesPage {
-    background: transparent;
-    color: palette(window-text);
-}
-#installationProfile {
-    background-color: palette(base);
-    border: 1px solid palette(mid);
-    border-radius: 6px;
-}
-#installationProfile QLabel {
-    border: none;
-    background: transparent;
-}
-#installationProfile QRadioButton {
-    spacing: 9px;
-    font-size: 14px;
-    font-weight: 600;
-}
-#profileUnavailable {
-    color: #e06c75;
-    font-weight: 600;
-}
-
 #starchSoftwarePage QLabel#softwareFieldTitle {
     font-size: 15px;
     font-weight: 600;

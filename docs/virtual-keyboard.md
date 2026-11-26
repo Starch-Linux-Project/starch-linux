@@ -1,24 +1,16 @@
 # Virtual keyboard
 
-The Plasma desktop, login screen, and lock screen use Plasma's on-screen
-keyboard. Its visibility follows Plasma's touch and text-input behavior;
-physical-keyboard systems do not have a keyboard panel forced open. Use the
-login screen's virtual-keyboard button when needed.
-
 Before Calamares starts, choose **standard keyboard** (the default) or
 **on-screen keyboard**. The on-screen option supplies a keyboard for the
 installer's text and password fields. To change modes, close and relaunch the
 installer. This choice applies only to the installer.
-
-Starch Lite (Xfce) does not include the Plasma keyboard.
 
 ## COSMIC LTS
 
 COSMIC LTS uses the upstream on-screen keyboard with **manual**
 activation. Automatic activation is disabled: COSMIC OSK 1.11's
 `ime_activation` option responds to text-field focus from both mouse and touch,
-so it cannot provide KDE-style touch-only activation. Starch does not patch
-COSMIC's compositor or keyboard. Open the keyboard manually when needed.
+so Starch seeds manual activation on both the live and installed desktops.
 
 Starch seeds `false` in
 `/etc/skel/.local/state/cosmic/com.system76.CosmicOSK/v1/ime_activation`

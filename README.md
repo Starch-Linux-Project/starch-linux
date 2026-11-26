@@ -1,6 +1,6 @@
-# Starch Linux Project
+# Starch Linux 1.4
 
-Starch Linux, a personal Linux made to  serve you the endless horizons of Arch/Artix,
+Starch Linux, a personal Linux made to  serve you the endless horizons of Arch Linux,
 without roleplaying as a systems engineer. 
 
 If you'd like to contribute to this project, understand your contribution matters
@@ -22,26 +22,20 @@ a fix to anything you think could be improved. 5 niche experts > one dude.
 # Starch Linux
 
 Starch Linux is an x86_64 Linux distribution with a graphical online installer.
-One ISO offers three installation profiles:
-
-| Profile | Desktop / login | Kernel / init | Repositories |
-| --- | --- | --- | --- |
-| KDE Plasma LTS (default) | Plasma Wayland / SDDM | Linux LTS / systemd | Arch |
-| COSMIC LTS | COSMIC Wayland / COSMIC Greeter | Linux LTS / systemd | Arch |
-| Starch Lite | Xfce X11 / LightDM | Linux Zen / OpenRC | Artix + Arch extra |
-
+The live ISO and installed system both use COSMIC Wayland with COSMIC Greeter.
+The live ISO uses the regular Arch kernel and signs into a temporary live account.
 Calamares installs fresh packages with pacstrap and erases the selected disk.
-All profiles use ext4, Limine (UEFI or BIOS), zram, NetworkManager, PipeWire,
-Flatpak, and Linux Update Utility. The Archiso live desktop uses Plasma,
-systemd, and the regular Arch kernel.
+The installed system uses Linux LTS and systemd, with authenticated login, ext4,
+Limine (UEFI or BIOS), zram, NetworkManager, PipeWire, Flatpak, and Linux Update
+Utility.
 
 An optional Additional Software page accepts pacman packages and Flathub app IDs
 for installation after the essential OS succeeds, with safe skipping and warnings
 for optional failures. Nothing is deferred to first boot.
 
-See [installation profiles](docs/installation-profiles.md),
+See [installation guide](docs/installation-profiles.md),
 [supported scope](docs/decisions.md), and [licensing](docs/licensing.md).
 
 Source: `archiso/profile/` holds the live image; `calamares/` the installer;
-`manifests/` the base package list; `scripts/installer/` profile configuration;
+`manifests/` the base package list; `scripts/installer/` target configuration;
 `packages/` integrations; and `tests/` automated checks.

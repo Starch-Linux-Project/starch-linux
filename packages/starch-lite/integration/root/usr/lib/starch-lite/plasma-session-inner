@@ -1,4 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
-# Legacy unsupported desktop entry; audio belongs to upstream user services.
-exec /usr/bin/startplasma-wayland

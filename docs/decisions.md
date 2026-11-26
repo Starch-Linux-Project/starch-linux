@@ -2,10 +2,9 @@
 
 ## Installation
 
-Starch supports x86_64 PCs with UEFI or legacy BIOS. The standard desktop is
-KDE Plasma on Wayland, with SDDM login and Fish as the user's default shell.
-[COSMIC LTS](cosmic.md) uses COSMIC with Linux LTS and systemd.
-[Starch Lite](starch-lite.md) uses Xfce, Linux Zen, and OpenRC.
+Starch supports x86_64 PCs with UEFI or legacy BIOS. Installed systems use
+[COSMIC](cosmic.md) on Wayland with COSMIC Greeter, Linux LTS, systemd, and Fish
+as the user's default shell. The live ISO uses the regular Arch kernel.
 
 Calamares installs packages online and erases the entire selected disk.
 Back up its contents before installing. The root filesystem is ext4; swap is
@@ -17,7 +16,7 @@ snapshot-based rollback. There are no ARM or 32-bit installation images.
 
 ## Packages and updates
 
-Standard installations use Arch repositories directly. Flatpak and Flathub are
+Installations use Arch repositories directly. Flatpak and Flathub are
 configured, with no Flatpak applications selected by default. The optional
 [Additional Software page](installation-profiles.md#additional-software) accepts
 pacman packages and Flathub app IDs during installation. The application package

@@ -3,7 +3,7 @@
 set -euo pipefail
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 chroot_dir="$repo_root/build/calamares/chroot"
-source_archive="$repo_root/build/calamares/repo/sources/calamares-3.3.14.tar.gz"
+source_archive="$repo_root/build/calamares/cosmic-repo/sources/calamares-3.3.14.tar.gz"
 [[ -f $chroot_dir/usr/lib/starch-installer/additional.py && -f $source_archive ]]
 # The private bind mount substitutes the helper only for this test namespace.
 # It disappears even if the test crashes; no package manager or disk job runs.

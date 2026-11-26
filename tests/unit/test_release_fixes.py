@@ -57,7 +57,7 @@ class BiosMountSafety(unittest.TestCase):
         for failure in (None, 'missing', 'ext4', 'other-disk', 'wrong-mount', 'unmounted'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory(prefix='calamares-root-') as directory:
                 root = Path(directory)
-                (root / 'selection.json').write_text(json.dumps({'disk': '/dev/vda'}))
+                (root / 'selection.json').write_text(json.dumps({'disk': '/dev/vda', 'profile': 'standard-cosmic'}))
                 boot = {'mountPoint': '/boot', 'fs': 'ext4' if failure == 'ext4' else 'fat32',
                         'device': '/dev/vda2'}
                 values = {'rootMountPoint': directory, 'firmwareType': 'bios',
