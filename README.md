@@ -1,7 +1,5 @@
 # Starch Linux Project
 
-This is the exact code used for release 1.3
-
 Starch Linux, a personal Linux made to  serve you the endless horizons of Arch/Artix,
 without roleplaying as a systems engineer. 
 
