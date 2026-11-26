@@ -8,7 +8,7 @@ if (( $# != 1 )) || [[ $1 != --check && $1 != --build && $1 != --compile ]]; the
     exit 2
 fi
 failed=0
-for tool in mkarchiso pacman pacman-key realpath df mountpoint python3 sha256sum tee; do
+for tool in mkarchiso pacman pacman-key realpath df mountpoint python3 cosmic-settings sha256sum tee; do
     if ! command -v "$tool" >/dev/null; then echo "Missing tool: $tool" >&2; failed=1; fi
 done
 for name in work cache logs; do
@@ -94,7 +94,8 @@ trap report_exit EXIT
 cp -a -- "$REPO_ROOT/archiso/profile" "$run_dir/profile"
 cp -a -- "$REPO_ROOT/luu-input" "$run_dir/luu-input"
 cp -a -- "$REPO_ROOT/wallpapers" "$run_dir/wallpapers"
-python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input" "$run_dir/wallpapers"
+cp -a -- "$REPO_ROOT/themes" "$run_dir/themes"
+python3 "$REPO_ROOT/scripts/build/stage-installer.py" "$run_dir/profile" "$run_dir/luu-input" "$run_dir/wallpapers" "$run_dir/themes"
 cp -a -- "$REPO_ROOT/build/calamares/cosmic-repo" "$run_dir/installer-repo"
 printf '\ncalamares-starch\n' >>"$run_dir/profile/packages.x86_64"
 printf '\n[starch]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$run_dir/installer-repo" >>"$run_dir/profile/pacman.conf"

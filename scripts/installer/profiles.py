@@ -43,6 +43,8 @@ COSMIC_FORBIDDEN = PLASMA_PACKAGES | {
 
 
 AUTH_PACKAGES = ('cosmic-greeter', 'cosmic-osd')
+COSMIC_SERIES = '1.12'
+AUTH_RELEASE = '1:1.12.0-1'
 
 
 def check_cosmic_closure(resolved, *, live=False):
@@ -67,15 +69,18 @@ def check_cosmic_packages(versions, *, live=False):
     missing = required - versions.keys()
     if missing:
         raise RuntimeError('Missing COSMIC packages: ' + ', '.join(sorted(missing)))
-    # These components define the defaults and session startup we inspected.
+    mismatches = []
     for name in ('cosmic-session', 'cosmic-comp', 'cosmic-panel', 'cosmic-applets',
                  'cosmic-bg', 'cosmic-settings', 'cosmic-settings-daemon', 'cosmic-greeter',
                  'cosmic-osk', 'cosmic-randr', 'cosmic-osd',
                  'xdg-desktop-portal-cosmic'):
         version = versions[name]
-        if version.split(':')[-1].rsplit('-', 1)[0] != '1.11.0':
-            raise RuntimeError(f'Review COSMIC defaults/startup for {name} {version} before installing.')
-        # Package release changes can change Arch's locker PAM patch or OSD
-        # agent behavior even when the upstream version is unchanged.
-        if name in AUTH_PACKAGES and version != '1:1.11.0-1':
-            raise RuntimeError(f'Review Arch COSMIC authentication packaging: {name} {version}')
+        if name in AUTH_PACKAGES:
+            if version != AUTH_RELEASE:
+                mismatches.append(f'{name} {version} (reviewed Arch release {AUTH_RELEASE})')
+        else:
+            upstream = version.split(':')[-1].rsplit('-', 1)[0]
+            if not re.fullmatch(re.escape(COSMIC_SERIES) + r'\.[0-9]+', upstream):
+                mismatches.append(f'{name} {version} (expected {COSMIC_SERIES}.x)')
+    if mismatches:
+        raise RuntimeError('Review COSMIC package changes before installing:\n  ' + '\n  '.join(mismatches))

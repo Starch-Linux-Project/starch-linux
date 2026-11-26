@@ -425,7 +425,7 @@ class InstallerSafety(unittest.TestCase):
             self.assertEqual(backgrounds[0].read_bytes(), b'png fixture')
             self.assertFalse(list((fs / 'usr/share/starch-installer/desktop-overlays').rglob('all')))
 
-    def test_evergreen_is_an_optional_cosmic_default(self):
+    def test_cosmic_default_uses_selected_wallpaper(self):
         spec = importlib.util.spec_from_file_location('stage_wallpapers', ROOT / 'scripts/build/stage-installer.py')
         stage = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(stage)
@@ -434,10 +434,15 @@ class InstallerSafety(unittest.TestCase):
             fs = temporary / 'airootfs'
             inputs = temporary / 'wallpapers'
             inputs.mkdir()
-            (inputs / 'wyxina-tree-8559118.jpg').write_bytes(b'evergreen fixture')
+            (inputs / 'default.txt').write_text('chosen.jpg\n')
+            (inputs / 'chosen.jpg').write_bytes(b'selected fixture')
             stage.stage_wallpapers(fs, inputs)
-            default = fs / 'usr/share/starch-installer/target-overlay/usr/share/backgrounds/starch/evergreen.jpg'
-            self.assertEqual(default.read_bytes(), b'evergreen fixture')
+            backgrounds = fs / 'usr/share/starch-installer/target-overlay/usr/share/backgrounds/starch'
+            default, = backgrounds.glob('chosen-*.jpg')
+            self.assertEqual(default.read_bytes(), b'selected fixture')
             selection = (fs / 'usr/share/starch-installer/desktop-overlays/cosmic'
                          / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all')
-            self.assertIn('Path("/usr/share/backgrounds/starch/evergreen.jpg")', selection.read_text())
+            self.assertIn(f'Path("/usr/share/backgrounds/starch/{default.name}")', selection.read_text())
+            (inputs / 'default.txt').write_text('missing.jpg\n')
+            stage.stage_wallpapers(fs, inputs)
+            self.assertFalse(selection.exists())

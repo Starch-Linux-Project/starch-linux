@@ -8,7 +8,7 @@ from media_defaults import validate_defaults
 
 SESSION_DIR = 'usr/share/wayland-sessions'
 PINS = ('firefox', 'com.system76.CosmicFiles', 'com.system76.CosmicTerm',
-        'com.system76.CosmicSettings', 'linux-update-utility')
+        'io.missioncenter.MissionCenter', 'com.system76.CosmicSettings', 'linux-update-utility')
 GREETER_COMMAND = '/usr/lib/starch-cosmic/greeter'
 
 
@@ -137,7 +137,7 @@ def validate(root, home):
     validate_vendor_units(root)
     if (root / 'etc/xdg/autostart/polkit-gnome-authentication-agent-1.desktop').exists():
         raise RuntimeError('Redundant GNOME polkit autostart in the COSMIC target.')
-    # Arch 1:1.11.0-1 reverts the locker PAM change to use login.
+    # The reviewed Arch greeter reverts the locker PAM change to use login.
     # Do not infer runtime PAM selection from an unused cosmic-greeter file.
     chroot(root, 'test', '-r', '/etc/pam.d/login')
     for service in ('greetd', 'sddm', 'lightdm'):

@@ -37,13 +37,14 @@ class DesktopSelection(unittest.TestCase):
                 disk.assert_not_called()
 
     def test_resolved_desktop_is_audited(self):
-        packages = {name: f'extra {name} 1:1.11.0-1' for name in profiles.COSMIC_PACKAGES}
+        packages = {name: f'extra {name} 1:1.12.0-1' for name in profiles.COSMIC_PACKAGES}
         resolved = '\n'.join(packages.values())
         profiles.check_cosmic_closure(resolved)
+        profiles.check_cosmic_closure(resolved.replace(packages['cosmic-comp'], 'extra cosmic-comp 1:1.12.1-2'))
         for changed in (resolved + '\nextra kwin 6.8-1',
                         resolved.replace(packages['bluez'], ''),
-                        resolved.replace(packages['cosmic-comp'], 'extra cosmic-comp 1:1.12.0-1'),
-                        resolved.replace(packages['cosmic-greeter'], 'extra cosmic-greeter 1:1.11.0-2')):
+                        resolved.replace(packages['cosmic-comp'], 'extra cosmic-comp 1:1.13.0-1'),
+                        resolved.replace(packages['cosmic-greeter'], 'extra cosmic-greeter 1:1.12.0-2')):
             with self.assertRaises(RuntimeError):
                 profiles.check_cosmic_closure(changed)
         installer = resolved + '\nextra qt6-virtualkeyboard 6.12.1-1\nextra kwallet 6.32.0-1'

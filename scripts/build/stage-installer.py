@@ -4,7 +4,9 @@ from pathlib import Path
 import hashlib
 import re
 import shutil
+import subprocess
 import sys
+import tempfile
 
 SOURCE = Path(__file__).resolve().parents[2]
 
@@ -15,16 +17,20 @@ LUU_FILES = {
 }
 
 COSMIC_WALLPAPER_SUFFIXES = {'.avif', '.jpeg', '.jpg', '.jxl', '.png', '.webp'}
-EVERGREEN_SOURCE = 'wyxina-tree-8559118.jpg'
 COSMIC_BACKGROUNDS = Path('usr/share/backgrounds/starch')
-COSMIC_DEFAULT = COSMIC_BACKGROUNDS / 'evergreen.jpg'
+
+
+def wallpaper_entry(path):
+    return (f'(output: "all", source: Path("/{path.as_posix()}"), '
+            'filter_by_theme: false, rotation_frequency: 900, filter_method: Lanczos, '
+            'scaling_mode: Zoom, sampling_method: Alphanumeric)\n')
 
 
 def stage_wallpapers(fs, input_dir=None):
     """Stage source images for the COSMIC wallpaper chooser."""
     input_dir = Path(input_dir) if input_dir is not None else SOURCE / 'wallpapers'
     if not input_dir.exists():
-        return
+        return {}
     if input_dir.is_symlink() or not input_dir.is_dir():
         raise RuntimeError('wallpapers must be a real directory')
     images = sorted(path for path in input_dir.rglob('*')
@@ -32,30 +38,117 @@ def stage_wallpapers(fs, input_dir=None):
     if any(path.is_symlink() or not path.is_file() for path in images):
         raise RuntimeError('Wallpaper inputs must be regular, non-symlink files')
 
+    selector = input_dir / 'default.txt'
+    if selector.is_symlink():
+        raise RuntimeError('Wallpaper selector must not be a symlink')
+    preferred = selector.read_text().strip() if selector.is_file() else None
+    default = None
+    by_stem = {}
     overlay = fs / 'usr/share/starch-installer/target-overlay'
     for source in images:
         relative = source.relative_to(input_dir).as_posix()
         slug = re.sub(r'[^a-z0-9]+', '-', source.stem.lower()).strip('-') or 'wallpaper'
         digest = hashlib.sha256(relative.encode()).hexdigest()[:8]
         background_name = f'{slug}-{digest}{source.suffix.lower()}'
-        if relative == EVERGREEN_SOURCE:
-            background_name = COSMIC_DEFAULT.name
         background = overlay / COSMIC_BACKGROUNDS / background_name
         background.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, background)
+        by_stem.setdefault(source.stem.casefold(), []).append(background.relative_to(overlay))
+        if relative == preferred:
+            default = background.relative_to(overlay)
 
-    # Evergreen is a preferred initial choice, not a required COSMIC asset.
-    # Only seed the selection when the corresponding input was supplied.
     config = (fs / 'usr/share/starch-installer/desktop-overlays/cosmic'
               / 'etc/skel/.config/cosmic/com.system76.CosmicBackground/v1/all')
     config.unlink(missing_ok=True)
-    if (overlay / COSMIC_DEFAULT).is_file():
-        selection = ('(output: "all", source: Path("/' + COSMIC_DEFAULT.as_posix()
-                     + '"), filter_by_theme: false, rotation_frequency: 900, '
-                     'filter_method: Lanczos, scaling_mode: Zoom, '
-                     'sampling_method: Alphanumeric)\n')
+    if default is not None:
         config.parent.mkdir(parents=True, exist_ok=True)
-        config.write_text(selection)
+        config.write_text(wallpaper_entry(default))
+    return by_stem
+
+
+def stage_theme_export(desktop, export, wallpaper, selected):
+    """Render the builder with COSMIC in a disposable, session-isolated home."""
+    mode = export.stem.rsplit('-', 1)[-1].capitalize()
+    if mode not in ('Dark', 'Light') or export.stem != f'{export.parent.name}-{mode.lower()}' or export.is_symlink():
+        raise RuntimeError(f'Expected a regular <folder>-dark.ron or <folder>-light.ron: {export}')
+    schema = desktop / 'usr/share/cosmic'
+    skel = desktop / 'etc/skel/.config/cosmic'
+    prefix = f'com.system76.CosmicThemeBundle.starch-{export.stem}'
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(['cosmic-settings', 'appearance', 'import', str(export.resolve())],
+                       env={'PATH': '/usr/bin', 'HOME': tmp, 'XDG_RUNTIME_DIR': tmp,
+                            'DBUS_SESSION_BUS_ADDRESS': f'unix:path={tmp}/no-bus'}, check=True)
+        config = Path(tmp) / '.config/cosmic'
+        for part, suffix in [('Theme', ''), ('Builder', '.Builder')]:
+            live = Path(f'com.system76.CosmicTheme.{mode}{suffix}/v2')
+            keys = config / live
+            if not keys.is_dir():
+                raise RuntimeError(f'{export} did not produce a {mode} {part}')
+            dest = schema / f'{prefix}.{part}/v2'
+            shutil.copytree(keys, dest)
+            fields = [f'{key.name}: {key.read_text().strip()}' for key in sorted(keys.iterdir())]
+            (dest / 'base').write_text('(\n' + ',\n'.join(fields) + ',\n)\n')
+            if selected:
+                shutil.copytree(keys, skel / live, dirs_exist_ok=True)
+    entry = wallpaper_entry(wallpaper)
+    background = schema / f'{prefix}.Background/v1'
+    background.mkdir(parents=True)
+    (background / 'base').write_text(entry)
+    if selected:
+        mode_background = skel / f'com.system76.CosmicBackground.{mode}/v1'
+        mode_background.mkdir(parents=True, exist_ok=True)
+        (mode_background / 'all').write_text(entry)
+
+
+def stage_themes(desktop, directory, wallpapers):
+    """Install personalizable system presets into the shared COSMIC overlay."""
+    directory = Path(directory)
+    if directory.is_symlink():
+        raise RuntimeError('themes must be a real directory')
+    if not directory.exists():
+        return
+    selector = directory / 'default.txt'
+    preferred = selector.read_text().strip() if selector.is_file() else None
+    if preferred and not (directory / preferred / f'{preferred}-dark.ron').is_file():
+        raise RuntimeError(f'Missing default dark theme export for {preferred}')
+    for preset in sorted(directory.iterdir()):
+        if preset.is_symlink():
+            raise RuntimeError(f'Unexpected theme symlink: {preset}')
+        if not preset.is_dir():
+            continue
+        matches = wallpapers.get(preset.name.casefold(), [])
+        if len(matches) > 1:
+            raise RuntimeError(f'Multiple wallpapers match theme folder {preset.name}: {matches}')
+        themes = sorted(preset.glob('com.system76.CosmicThemeBundle.*.Theme'))
+        exports = sorted(preset.glob('*.ron'))
+        for export in exports:
+            if not matches:
+                raise RuntimeError(f'Missing matching wallpaper for {export}')
+            stage_theme_export(desktop, export, matches[0], preset.name == preferred)
+        if not themes and not exports:
+            raise RuntimeError(f'No native COSMIC bundle in {preset}')
+        schema = desktop / 'usr/share/cosmic'
+        for theme in themes:
+            prefix = theme.name.removesuffix('.Theme')
+            for part in ('Theme', 'Builder', 'Background', 'Package'):
+                source = preset / f'{prefix}.{part}'
+                destination = schema / source.name
+                if source.is_symlink() or any(p.is_symlink() for p in source.rglob('*')):
+                    raise RuntimeError(f'Unexpected symlink in theme component: {source}')
+                if source.is_dir():
+                    shutil.copytree(source, destination)
+                elif part in ('Theme', 'Builder') or (part == 'Background' and not matches):
+                    raise RuntimeError(f'Missing theme component: {source}')
+                if part == 'Background' and matches:
+                    base = destination / 'v1/base'
+                    base.parent.mkdir(parents=True, exist_ok=True)
+                    base.write_text(wallpaper_entry(matches[0]))
+        for notice in preset.glob('LICENSE*'):
+            if notice.is_symlink() or not notice.is_file():
+                raise RuntimeError(f'Invalid theme license file: {notice}')
+            dest = desktop / 'usr/share/licenses/starch-themes' / preset.name / notice.name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(notice, dest)
 
 
 def stage_luu(fs, input_dir=None):
@@ -82,7 +175,7 @@ def stage_luu(fs, input_dir=None):
             destination.chmod(mode)
 
 
-def stage(profile, luu_input=None, wallpaper_input=None):
+def stage(profile, luu_input=None, wallpaper_input=None, theme_input=None):
     fs = profile / 'airootfs'
     # Keep live and installed banners sourced from the maintained root artwork.
     artwork = fs / 'usr/share/starch/fastfetch-text'
@@ -137,7 +230,8 @@ def stage(profile, luu_input=None, wallpaper_input=None):
     fish.parent.mkdir(parents=True, exist_ok=True)
     fish.write_text('if status is-interactive; and test (id -u) -ne 0\n    fastfetch\nend\n')
     stage_luu(fs, luu_input)
-    stage_wallpapers(fs, wallpaper_input)
+    wallpapers = stage_wallpapers(fs, wallpaper_input)
+    stage_themes(desktop, theme_input if theme_input is not None else SOURCE / 'themes', wallpapers)
     if (overlay / COSMIC_BACKGROUNDS).is_dir():
         shutil.copytree(overlay / COSMIC_BACKGROUNDS, fs / COSMIC_BACKGROUNDS, dirs_exist_ok=True)
     shutil.copytree(desktop, fs, dirs_exist_ok=True)
@@ -153,10 +247,9 @@ def stage(profile, luu_input=None, wallpaper_input=None):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) not in (2, 3, 4):
-        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE [LUU_INPUT [WALLPAPER_INPUT]]')
+    if not 2 <= len(sys.argv) <= 5:
+        sys.exit('Usage: stage-installer.py SNAPSHOT_PROFILE [LUU_INPUT [WALLPAPER_INPUT [THEME_INPUT]]]')
     profile = Path(sys.argv[1]).resolve()
     if profile == (SOURCE / 'archiso/profile').resolve() or not (profile / 'profiledef.sh').is_file():
         sys.exit('Installer staging requires a generated profile snapshot.')
-    stage(profile, sys.argv[2] if len(sys.argv) >= 3 else None,
-          sys.argv[3] if len(sys.argv) == 4 else None)
+    stage(profile, *sys.argv[2:])

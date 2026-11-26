@@ -130,6 +130,7 @@ zsh
 
 # additonal packages start here 
 flatpak
+mission-center
 fastfetch
 btop
 firefox

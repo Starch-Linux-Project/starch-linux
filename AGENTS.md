@@ -269,7 +269,7 @@ for both builds and installations. The live build also stages the local
 Calamares package.
 
 `profiles.py` audits the resolved COSMIC dependency closure for both
-environments and pins specified components to upstream version `1.11.0`.
+environments and accepts patch updates within the supported COSMIC 1.12 series.
 Arch greeter and OSD additionally require the reviewed package releases. Review
 defaults, startup, greeter/locking, portals, keyboard, and display command
 formats before accepting new COSMIC releases. Qt Virtual Keyboard and kdialog's
@@ -619,7 +619,7 @@ entry and staging/integration. Its staged paths include:
 
 Preserve both live and target delivery. The COSMIC dock uses the bundled
 desktop entry. Wallpaper inputs are copied to `/usr/share/backgrounds/starch`;
-see `wallpapers/README.md` for supported formats and the Evergreen default.
+see `wallpapers/README.md` for supported formats and how to select the default.
 
 Original Starch software is GPL-3.0-or-later. The root `fastfetch-text` artwork
 and its maintained live copy are CC0-1.0. Third-party material keeps its own
