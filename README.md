@@ -1,6 +1,6 @@
 # Starch Linux 1.4
 
-Starch Linux, a personal Linux made to  serve you a pleasing and ready-to-run linux system.
+Starch Linux, a personal Linux made to serve you a pleasing and ready-to-run linux system.
 
 If you'd like to contribute to this project, understand your contribution matters
 more than you likely think. I'm currently one dude spending many hours out of my 
