@@ -25,14 +25,14 @@ def require_live():
         raise RuntimeError('The installer must run as root inside the Starch live ISO.')
 
 
-def command(argv, timeout=3600):
+def command(argv, timeout=3600, *, umask=-1):
     """No shell expansion, and no password-bearing commands enter this log."""
     with LOG.open('a') as log:
         LOG.chmod(0o600)
         log.write('\n$ ' + ' '.join(map(str, argv)) + '\n')
         log.flush()
         proc = subprocess.Popen(list(map(str, argv)), stdout=log, stderr=subprocess.STDOUT,
-                                stdin=subprocess.DEVNULL, start_new_session=True)
+                                stdin=subprocess.DEVNULL, start_new_session=True, umask=umask)
         try:
             status = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:

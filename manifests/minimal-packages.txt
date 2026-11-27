@@ -28,6 +28,7 @@ nano
 btop
 zram-generator
 flatpak
+mission-center
 cosmic-text-editor
 gnome-calculator
 gnome-disk-utility
@@ -78,6 +79,8 @@ gnome-keyring
 xdg-user-dirs
 bluez
 power-profiles-daemon
+brightnessctl
+ddcutil
 greetd
 python-gobject
 libnotify

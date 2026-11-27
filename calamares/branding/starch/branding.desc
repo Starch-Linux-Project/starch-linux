@@ -1,8 +1,6 @@
 componentName: starch
 welcomeStyleCalamares: false
-windowExpanding: normal
-windowSize: 900px,650px
-windowPlacement: center
+windowExpanding: fullscreen
 slideshow: []
 sidebar: widget
 navigation: widget

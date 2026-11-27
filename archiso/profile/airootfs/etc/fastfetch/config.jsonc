@@ -20,7 +20,10 @@
     "os",
     "kernel",
     "uptime",
-    "packages",
+    {
+      "type": "packages",
+      "format": "{pacman} (pacman), {flatpak-all} (Flatpak)"
+    },
     "shell",
     "display",
     "de",

@@ -63,11 +63,13 @@ launcher does not fabricate a runtime directory or bypass account/session checks
 COSMIC OSD 1:1.11.0-1 registers its native polkit agent, so the additional GNOME
 agent is absent from fresh installations and live media.
 
-`profiles.py` continues to audit the resolved transaction and reviewed COSMIC
-1.11.0 components. Arch greeter and OSD additionally require the reviewed
-`extra/1:1.11.0-1` package releases because packaging changes can alter PAM or
-agent behavior without changing the upstream version. A new release requires
-review before installation. This is an installer gate, not an installed-system
+`profiles.py` accepts upstream 1.12.x patch releases for the checked COSMIC
+components. Greeter and OSD require Arch `extra/1:1.12.0-1` because a packaging
+revision can change locker PAM selection or native agent activation.
+The [Arch 1.12 greeter recipe](https://gitlab.archlinux.org/archlinux/packaging/packages/cosmic-greeter/-/blob/1-1.12.0-1/PKGBUILD)
+retains the PAM revert. The [1.12 OSD](https://github.com/pop-os/cosmic-osd/blob/epoch-1.12.0/src/components/app.rs)
+still subscribes to its polkit agent. Review a new minor series or either
+authentication package revision before accepting it. This is an installer gate, not an installed-system
 pacman version lock. No custom COSMIC package or repository is introduced;
 Linux Update Utility remains outside pacman.
 

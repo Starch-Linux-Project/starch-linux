@@ -1,7 +1,6 @@
 # Starch Linux 1.4
 
-Starch Linux, a personal Linux made to  serve you the endless horizons of Arch Linux,
-without roleplaying as a systems engineer. 
+Starch Linux, a personal Linux made to serve you a pleasing and ready-to-run linux system.
 
 If you'd like to contribute to this project, understand your contribution matters
 more than you likely think. I'm currently one dude spending many hours out of my 
@@ -12,14 +11,10 @@ and I'm not some prodigy programmer. This is exactly why this project needs expe
 Linux Systems Engineer, but rather someone who loves one specific part. If you love
 diving into a couple niche parts of Linux, these are the kind of contributors that change
 things. A jack of all trades is a master of none, a master of one will get their job done. 
-I have done the best I can covering all bases, and I've learned so much from this project. 
 This project has allowed me to learn so much, but at the end of the day I can't become an expert
 on everything. Look through the configs, the choices I've made or anything else here, and propose
 a fix to anything you think could be improved. 5 niche experts > one dude. 
 
-
-
-# Starch Linux
 
 Starch Linux is an x86_64 Linux distribution with a graphical online installer.
 The live ISO and installed system both use COSMIC Wayland with COSMIC Greeter.

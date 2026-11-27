@@ -130,6 +130,7 @@ zsh
 
 # additonal packages start here 
 flatpak
+mission-center
 fastfetch
 btop
 firefox
@@ -197,6 +198,8 @@ gnome-keyring
 xdg-user-dirs
 bluez
 power-profiles-daemon
+brightnessctl
+ddcutil
 greetd
 python-gobject
 libnotify
