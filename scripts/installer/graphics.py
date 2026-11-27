@@ -49,7 +49,8 @@ def package_selection(devices, supported, kernel='linux-lts'):
     return list(dict.fromkeys(packages))
 
 
-def select_packages(pacman, state, kernel='linux-lts'):
+def select_packages(pacman, state, kernel='linux-lts', *,
+                    virtio_driver=Path('/sys/bus/virtio/drivers/virtio_gpu')):
     devices = display_devices()
     supported = set()
     if any(device[0] == 0x10de for device in devices):
@@ -80,4 +81,7 @@ def select_packages(pacman, state, kernel='linux-lts'):
                 utils_version = versions.get('nvidia-utils', '').split(':')[-1].rsplit('-', 1)[0]
                 if source_version != utils_version:
                     raise RuntimeError('NVIDIA package metadata is out of sync. Retry after the mirror updates.')
-    return package_selection(devices, supported, kernel)
+    packages = package_selection(devices, supported, kernel)
+    if any(device.is_symlink() for device in virtio_driver.glob('virtio[0-9]*')):
+        packages.append('vulkan-virtio')
+    return packages

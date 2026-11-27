@@ -48,4 +48,7 @@ to new installations. Existing installations keep their current desktop.
 The target package requests are recorded in
 [the installation manifest](../manifests/minimal-packages.txt). Preflight adds
 hardware-specific microcode and graphics packages and adds Plymouth for BIOS.
+Guests with a device bound to the Linux virtio GPU driver also request Arch's
+`vulkan-virtio`. Vulkan acceleration requires a host configured for
+[Mesa Venus](https://docs.mesa3d.org/drivers/venus.html).
 The historical `standard-cosmic` identifier remains in installation logs.
