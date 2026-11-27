@@ -11,7 +11,9 @@ def pacstrap(root, config_path, packages, attempts=3):
     argv = ['pacstrap', '-K', '-M', '-C', config_path, root, *packages]
     for attempt in range(1, attempts + 1):
         try:
-            command(argv)
+            # pacman creates its installed-package database in this process.
+            # Desktop users need to read it for pacman -Q and Fastfetch.
+            command(argv, umask=0o022)
             return
         except RuntimeError:
             if attempt == attempts:

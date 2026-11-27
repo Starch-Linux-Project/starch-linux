@@ -26,6 +26,8 @@ class InstallerSafety(unittest.TestCase):
              patch.object(bootstrap, 'LOG', Path(directory) / 'installer.log'):
             bootstrap.pacstrap(Path(directory), Path('/pacman.conf'), ['base'])
         self.assertEqual(command.call_count, 2)
+        for attempt in command.call_args_list:
+            self.assertEqual(attempt.kwargs['umask'], 0o022)
 
     def test_installer_presentation_is_branded_and_erase_is_initial(self):
         branding = yaml.safe_load((ROOT / 'calamares/branding/starch/branding.desc').read_text())

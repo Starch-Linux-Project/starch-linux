@@ -98,6 +98,10 @@ def stage_theme_export(desktop, export, wallpaper, selected):
         mode_background = skel / f'com.system76.CosmicBackground.{mode}/v1'
         mode_background.mkdir(parents=True, exist_ok=True)
         (mode_background / 'all').write_text(entry)
+        # Seed the same state COSMIC writes when applying a bundle in Settings.
+        (mode_background / 'base').write_text(entry)
+        (mode_background / 'same-on-all').write_text('true\n')
+        (mode_background / 'backgrounds').write_text('[]\n')
 
 
 def stage_themes(desktop, directory, wallpapers):

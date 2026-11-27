@@ -1,8 +1,32 @@
+import json
+from pathlib import Path
 import re
 
 from runtime import chroot, put, target
 from profiles import KERNEL
 import cosmic
+
+
+def seed_greeter_wallpaper(root, username, drm=Path('/sys/class/drm')):
+    """Seed the per-output state cosmic-bg normally publishes after first login."""
+    skel = root / 'etc/skel/.config/cosmic'
+    selection = skel / 'com.system76.CosmicBackground/v1/all'
+    if not selection.is_file():
+        return
+    match = re.search(r'source:\s*Path\("(/usr/share/backgrounds/starch/[\w.-]+)"\)', selection.read_text())
+    if not match or not (root / match[1].lstrip('/')).is_file():
+        return
+    outputs = sorted({status.parent.name.split('-', 1)[1]
+                      for status in drm.glob('card[0-9]*-*/status')})
+    if not outputs:
+        return
+    entries = [f'({json.dumps(output)}, Path({json.dumps(match[1])}))' for output in outputs]
+    state = '[' + ', '.join(entries) + ']'
+    # Run as the installed user so the first session can update the file normally.
+    chroot(root, 'runuser', '-u', username, '--', 'sh', '-c',
+           'cd "$HOME" && dir=.local/state/cosmic/com.system76.CosmicBackground/v1 && '
+           'mkdir -p "$dir" && if [ ! -e "$dir/wallpapers" ]; then '
+           'printf "%s\n" "$1" > "$dir/wallpapers"; fi', 'seed-wallpaper', state)
 
 
 def run(gs):
@@ -36,4 +60,5 @@ def run(gs):
            'power-profiles-daemon.service', 'bluetooth.service')
     chroot(root, 'systemctl', 'set-default', 'graphical.target')
     cosmic.configure(root)
+    seed_greeter_wallpaper(root, gs.value('username'))
     chroot(root, 'mkinitcpio', '-P')

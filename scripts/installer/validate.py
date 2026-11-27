@@ -42,6 +42,8 @@ def run(gs):
     home = root / users[username][5].lstrip('/')
     if not home.is_dir() or home.stat().st_uid != int(users[username][2]):
         raise RuntimeError('Installed home ownership is incorrect.')
+    chroot(root, 'setpriv', '--reuid=' + users[username][2], '--regid=' + users[username][3],
+           '--init-groups', '--', 'pacman', '-Q', 'fastfetch')
     cosmic.validate(root, home)
     shadow = {p[0]: p[1] for p in (line.split(':') for line in (root / 'etc/shadow').read_text().splitlines())}
     if not shadow.get(username) or shadow[username][0] in '!*' or not shadow['root'].startswith(('!', '*')):
