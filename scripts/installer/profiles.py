@@ -32,6 +32,7 @@ COSMIC_PACKAGES = (
     'cosmic-terminal', 'cosmic-text-editor', 'xdg-desktop-portal-cosmic',
     'xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xorg-xwayland',
     'xorg-server', 'xorg-xauth', 'gnome-keyring', 'xdg-user-dirs',
+    'fprintd', 'libfprint',
     # COSMIC replaces Blueman's UI, but configure still enables bluetooth.service.
     # Its battery applet uses power-profiles-daemon for profile selection.
     'bluez', 'power-profiles-daemon', 'greetd', 'python-gobject', 'libnotify',

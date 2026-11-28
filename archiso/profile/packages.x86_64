@@ -195,6 +195,8 @@ xdg-desktop-portal-gtk
 xorg-server
 xorg-xauth
 gnome-keyring
+fprintd
+libfprint
 xdg-user-dirs
 bluez
 power-profiles-daemon

@@ -47,6 +47,21 @@ of its home and runtime directories before declaring installation successful.
 
 ## Authentication baseline
 
+Fresh installations and live images include Arch's `fprintd` and `libfprint`
+regardless of reader hardware. Arch owns their D-Bus activation, systemd unit,
+udev rules and Polkit policy. Enrollment UI and desktop authentication depend
+on upstream COSMIC integration. Greetd's existing selection of `starch-greetd`
+means changes specific to the vendor login PAM service may not apply at login.
+
+The desktop manifest is consumed at installation. There is no installed
+desktop metapackage to pull these dependencies onto older installations.
+Once installed, both packages receive normal Arch package updates.
+
+Runtime validation is pending. On a supported reader, check device discovery
+with the fprintd Manager's `GetDevices` D-Bus method, then test
+`fprintd-enroll` and `fprintd-verify` as a disposable test user. Test password
+login and unlock on both that system and a machine without a reader.
+
 On 2026-11-15, Arch `cosmic-greeter 1:1.11.0-1` still reverted upstream commit
 `ef1253aa2393666bb2a0b0132b722f51ec7ebbf3`. This restores **login** as the locker's
 PAM service as well as the vendor TOML's login selection. The locker calls

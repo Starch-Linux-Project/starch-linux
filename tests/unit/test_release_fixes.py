@@ -127,7 +127,13 @@ class GraphicsSelection(unittest.TestCase):
     def test_non_nvidia_needs_no_metadata_download(self):
         with patch.object(graphics, 'display_devices', return_value=[self.amd]), \
              patch.object(graphics, 'command') as command:
-            self.assertEqual(graphics.select_packages(['pacman'], Path('/unused')), ['vulkan-radeon'])
+            with tempfile.TemporaryDirectory() as directory:
+                driver = Path(directory)
+                self.assertEqual(graphics.select_packages(['pacman'], driver, virtio_driver=driver),
+                                 ['vulkan-radeon'])
+                (driver / 'virtio0').symlink_to(driver)
+                self.assertEqual(graphics.select_packages(['pacman'], driver, virtio_driver=driver),
+                                 ['vulkan-radeon', 'vulkan-virtio'])
         command.assert_not_called()
 
     def test_nvidia_uses_signed_package_table_and_checks_driver_version(self):
@@ -147,7 +153,8 @@ class GraphicsSelection(unittest.TestCase):
                      patch.object(graphics, 'command', side_effect=download), \
                      patch.object(graphics, 'output', side_effect=output):
                     if version == '1.2.3':
-                        self.assertEqual(graphics.select_packages(['pacman'], Path(directory)),
+                        self.assertEqual(graphics.select_packages(['pacman'], Path(directory),
+                                                                  virtio_driver=Path(directory)),
                                          ['nvidia-open-lts', 'nvidia-utils'])
                     else:
                         with self.assertRaisesRegex(RuntimeError, 'out of sync'):
